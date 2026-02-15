@@ -274,19 +274,6 @@ rb338-renewed/
 └── README.md              # This file
 ```
 
----
-
-## 🌟 Inspiration & Credits
-
-### Historical Context
-
-**ReBirth RB-338** (1997) by Propellerhead Software was revolutionary - the first software to authentically emulate the Roland TR-808, TR-909, and TB-303. It pioneered:
-- Real-time software synthesis on consumer computers
-- Faithful analog modeling of classic drum machines
-- Visual skeuomorphism in music production software
-
-**RB-338 Renewed** honors this legacy while modernizing the codebase and adding contemporary workflow enhancements.
-
 ### Technical References
 
 - **Roland TR-909** - Original analog drum machine (1983-1984)
@@ -349,7 +336,6 @@ MIT License - See LICENSE file for details
 
 - **JUCE Framework** - [juce.com](https://juce.com/)
 - **Roland TR-909** - [Wikipedia](https://en.wikipedia.org/wiki/Roland_TR-909)
-- **ReBirth RB-338 History** - See `DOCUMENTS/` folder for media and documentation
 
 ---
 
