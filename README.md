@@ -83,19 +83,14 @@ Each instrument uses **authentic analog modeling techniques**:
 ## 📸 Screenshots
 
 ### Collapsed View - Step Button Interface
-<img src="DOCUMENTS/Stitch LoS9x9/los9x9_Main/screen.png" alt="Collapsed View" width="800">
+<img src="DOCUMENTS/Stitch LoS9x9/los9x9_Main/screen.png" alt="Collapsed View" width="440">
 
 *Compact view showing header knobs, step buttons 1-16, and transport controls*
 
 ### Expanded View - Full 11×16 Grid
-<img src="DOCUMENTS/Stitch LoS9x9/los9x9_Extended/screen.png" alt="Expanded Grid View" width="800">
+<img src="DOCUMENTS/Stitch LoS9x9/los9x9_Extended/screen.png" alt="Expanded Grid View" width="440">
 
 *Full sequencer grid with all instruments visible - perfect for pattern overview and paint mode editing*
-
-### Historical Context
-<img src="DOCUMENTS/Chart.png" alt="ReBirth RB-338 History" width="800">
-
-*The legacy of ReBirth RB-338, the groundbreaking software that inspired this project*
 
 ---
 
@@ -116,8 +111,8 @@ xcode-select --install
 
 ```bash
 # 1. Clone the repository
-git clone https://github.com/yourusername/rb338-renewed.git
-cd rb338-renewed
+git clone https://github.com/CarlosFranzetti/LoS.9x9.git
+cd LoS.9x9
 
 # 2. Initialize JUCE submodule
 git submodule update --init --recursive
@@ -268,7 +263,7 @@ The UI faithfully recreates the **TR-909/ReBirth aesthetic** with:
 ## 📚 Project Structure
 
 ```
-rb338-renewed/
+LoS.9x9/
 ├── Source/
 │   ├── Main.cpp           # UI components, MainWindow, Application
 │   ├── Engine.cpp/h       # Audio engine, mixer, voice management
