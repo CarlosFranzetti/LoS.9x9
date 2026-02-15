@@ -82,12 +82,12 @@ Each instrument uses **authentic analog modeling techniques**:
 ## 📸 Screenshots
 
 ### Collapsed View - Step Button Interface
-<img src="DOCUMENTS/Stitch LoS9x9/los9x9_Main/screen.png" alt="Collapsed View" width="440">
+<img src="DOCUMENTS/Stitch LoS9x9/los9x9_Main/screen.png" alt="Collapsed View">
 
 *Compact view showing header knobs, step buttons 1-16, and transport controls*
 
 ### Expanded View - Full 11×16 Grid
-<img src="DOCUMENTS/Stitch LoS9x9/los9x9_Extended/screen.png" alt="Expanded Grid View" width="440">
+<img src="DOCUMENTS/Stitch LoS9x9/los9x9_Extended/screen.png" alt="Expanded Grid View">
 
 *Full sequencer grid with all instruments visible - perfect for pattern overview and paint mode editing*
 
