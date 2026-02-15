@@ -8,7 +8,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 add_subdirectory(external/JUCE)
 
 juce_add_gui_app(RB338Renewed
-    PRODUCT_NAME "RB-338 Renewed"
+    PRODUCT_NAME "RB338Renewed"
     COMPANY_NAME "LosFiesta"
 )
 
