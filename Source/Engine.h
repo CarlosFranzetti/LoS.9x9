@@ -23,6 +23,7 @@ namespace rb338
         void setBpm(float bpm);
         void setRunning(bool running);
         bool isRunning() const;
+        void setAccentLevel(float level); // 0-1 range, controls accent volume boost
 
         Sequencer& getSequencer();
         SampleLibrary& getSampleLibrary();
@@ -41,6 +42,7 @@ namespace rb338
         double sampleRate = 44100.0;
         SampleLibrary sampleLibrary;
         Sequencer sequencer;
+        float accentLevel = 0.5f; // TR-909 style accent control (0-1)
 
         juce::Array<VoiceInstance> voices[(int)Instrument::Count];
         MixerChannel channels[(int)Instrument::Count];

@@ -28,7 +28,19 @@ namespace rb338
                     VoiceInstance voice;
                     voice.sample = &sampleLibrary.get(event.instrument);
                     voice.position = 0;
-                    voice.gain = event.velocity;
+
+                    // Apply TR-909 style accent boost
+                    if (event.velocity >= 0.9f) // Accent hit
+                    {
+                        // Accent boost: 0% at accentLevel=0, up to 50% boost at accentLevel=1
+                        float accentBoost = 1.0f + (accentLevel * 0.5f);
+                        voice.gain = event.velocity * accentBoost;
+                    }
+                    else // Normal hit
+                    {
+                        voice.gain = event.velocity;
+                    }
+
                     voices[(int)event.instrument].add(voice);
                 }
             }
@@ -86,6 +98,11 @@ namespace rb338
     bool Engine::isRunning() const
     {
         return sequencer.isRunning();
+    }
+
+    void Engine::setAccentLevel(float level)
+    {
+        accentLevel = juce::jlimit(0.0f, 1.0f, level);
     }
 
     Sequencer& Engine::getSequencer()

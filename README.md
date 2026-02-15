@@ -1,8 +1,9 @@
-# 🥁 RB-338 Renewed • LoS.9x9 Rhythm Composer
+# 🥁 LoS.9x9 Rhythm Composer
 
 <div align="center">
 
 **A modern TR-909-style drum machine built with JUCE**
+*Formerly RB-338 Renewed*
 
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg?style=flat-square)](https://www.apple.com/macos/)
 [![JUCE](https://img.shields.io/badge/framework-JUCE-orange.svg?style=flat-square)](https://juce.com/)
@@ -17,9 +18,9 @@
 
 ---
 
-## 🎵 What is RB-338 Renewed?
+## 🎵 What is LoS.9x9?
 
-**RB-338 Renewed** is a standalone drum machine application inspired by the legendary **Roland TR-909** and the iconic **Propellerhead ReBirth RB-338**. Built from the ground up with modern C++ and JUCE, it recreates the authentic sound and workflow of classic drum machines while adding modern conveniences like paint mode editing and shuffle control.
+**LoS.9x9 Rhythm Composer** is a standalone drum machine application inspired by the legendary **Roland TR-909** and the iconic **Propellerhead ReBirth RB-338**. Built from the ground up with modern C++ and JUCE, it recreates the authentic sound and workflow of classic drum machines while adding modern conveniences like paint mode editing, shuffle control, and accent level adjustment.
 
 ### 🎯 Design Philosophy
 
@@ -36,8 +37,11 @@
 
 - **16-step pattern sequencer** with 11 classic TR-909 instruments
 - **Paint mode editing** - drag across steps to fill/erase patterns instantly
-- **Accent programming** - one-click accent hits for dynamic expression
+- **Accent programming** - one-click accent hits with adjustable boost level
+- **Accent level control** - TR-909 style accent knob (0-50% boost)
 - **Shuffle/swing control** - 0-100% triplet feel for groove and timing variation
+- **Green LCD display** - Classic green display (Red, Amber, Blue, Cyan, White also available)
+- **Dark mode support** - Switch between light and dark panel themes
 - **Expandable grid view** - see all 11 instruments × 16 steps simultaneously
 - **BPM control** - 60-180 BPM with mouse wheel or drag adjustment
 
@@ -66,11 +70,13 @@ Each instrument uses **authentic analog modeling techniques**:
 
 ### 💡 User Interface
 
-- **Double-click knobs** to reset to default values
+- **Double-click knobs** to reset to default values (0.5 center)
 - **Space bar** to start/stop playback
 - **PANEL button** to toggle grid view (collapsed/expanded)
-- **LCD display** with BPM, pattern info, and sync status
-- **Retro aesthetic** with beige panels, orange accents, and LED indicators
+- **LCD display** with BPM, pattern info, and green display
+- **Shuffle & Accent knobs** next to LCD for quick access
+- **Retro aesthetic** with beige panels (or dark mode), orange accents, and LED indicators
+- **Optimized spacing** - all knob labels clearly visible with proper padding
 
 ---
 
@@ -163,6 +169,7 @@ cmake --build build
 |-----------|---------|-------|
 | **BPM** | Mouse wheel or drag LCD | 60-180 BPM |
 | **Shuffle** | Rotary knob next to BPM | 0-100% (straight → triplet) |
+| **Accent Level** | Rotary knob next to Shuffle | 0-50% volume boost for accents |
 | **Tune** | Instrument knobs | Pitch adjustment |
 | **Tone** | Instrument knobs | Brightness/filter |
 | **Decay** | Instrument knobs | Sustain length |
@@ -303,13 +310,18 @@ rb338-renewed/
 
 ## 🗺️ Roadmap
 
-### Phase 1: TR-909 Module ✅ (Current)
+### Phase 1: TR-909 Module ✅ (Complete)
 - [x] 16-step sequencer with 11 instruments
-- [x] Authentic TR-909 synthesis
-- [x] Paint mode editing
-- [x] Shuffle/swing control
-- [x] Per-instrument mixer
-- [x] Sample loading support
+- [x] Authentic TR-909 synthesis with enhanced hi-hats
+- [x] Paint mode editing (drag to fill/erase)
+- [x] Shuffle/swing control (0-100%)
+- [x] Accent level control (TR-909 style)
+- [x] Per-instrument mixer with tune/tone controls
+- [x] Sample loading support (.wav, .aif, .aiff)
+- [x] Green LCD display with color options
+- [x] Dark mode theme support
+- [x] Double-click knob reset
+- [x] Improved UI spacing and legibility
 
 ### Phase 2: TB-303 Module (Planned)
 - [ ] Acid bassline sequencer

@@ -5,45 +5,133 @@
 namespace rb338
 {
     // =========================================================================
-    // Colour Palette (matching HTML mockups)
+    // Theme System - Supports Light and Dark modes
     // =========================================================================
+    struct Theme
+    {
+        juce::Colour beige, panelBg, mainGrey, darkGrey;
+        juce::Colour orange, orangeDark, idleGrey, footerGrey;
+        juce::Colour borderLight, headerBorder;
+        juce::Colour stepWhiteTop, stepWhiteBot, stepOrgTop, stepOrgBot;
+        juce::Colour stepBlkTop, stepBlkBot;
+        juce::Colour ledOff, ledOn;
+        juce::Colour lcdBg, lcdBorder, lcdBright, lcdDim;
+        juce::Colour gridLine, gridLabelBg, cellActive, cellAccent;
+        juce::Colour textDark, textMid, textLight, textWhite;
+
+        static Theme light()
+        {
+            Theme t;
+            t.beige = juce::Colour(0xffd8d8d2); t.panelBg = juce::Colour(0xffe5e5df);
+            t.mainGrey = juce::Colour(0xffc8c8c0); t.darkGrey = juce::Colour(0xff4a4a4a);
+            t.orange = juce::Colour(0xffff6a00); t.orangeDark = juce::Colour(0xffb34a00);
+            t.idleGrey = juce::Colour(0xff2a2a2a); t.footerGrey = juce::Colour(0xffb0b0a8);
+            t.borderLight = juce::Colour(0xffb8b8b0); t.headerBorder = juce::Colour(0xffa8a8a0);
+            t.stepWhiteTop = juce::Colour(0xffeeeeee); t.stepWhiteBot = juce::Colour(0xffcccccc);
+            t.stepOrgTop = juce::Colour(0xffff9d5c); t.stepOrgBot = juce::Colour(0xffff6a00);
+            t.stepBlkTop = juce::Colour(0xff555555); t.stepBlkBot = juce::Colour(0xff222222);
+            t.ledOff = juce::Colour(0xff444444); t.ledOn = juce::Colour(0xffff3300);
+            t.lcdBg = juce::Colour(0xff1a1a1a); t.lcdBorder = juce::Colour(0xff333333);
+            t.lcdBright = juce::Colour(0xff33cc33); t.lcdDim = juce::Colour(0xff116611);
+            t.gridLine = juce::Colour(0xffb8b8b0); t.gridLabelBg = juce::Colour(0xffd0d0c8);
+            t.cellActive = juce::Colour(0xffff6a00); t.cellAccent = juce::Colour(0xffff3300);
+            t.textDark = juce::Colour(0xff333333); t.textMid = juce::Colour(0xff555555);
+            t.textLight = juce::Colour(0xff777777); t.textWhite = juce::Colour(0xffffffff);
+            return t;
+        }
+
+        static Theme dark()
+        {
+            Theme t;
+            t.beige = juce::Colour(0xff2a2a2a); t.panelBg = juce::Colour(0xff1e1e1e);
+            t.mainGrey = juce::Colour(0xff3a3a3a); t.darkGrey = juce::Colour(0xff666666);
+            t.orange = juce::Colour(0xffff8833); t.orangeDark = juce::Colour(0xffcc6622);
+            t.idleGrey = juce::Colour(0xff1a1a1a); t.footerGrey = juce::Colour(0xff333333);
+            t.borderLight = juce::Colour(0xff555555); t.headerBorder = juce::Colour(0xff444444);
+            t.stepWhiteTop = juce::Colour(0xff666666); t.stepWhiteBot = juce::Colour(0xff444444);
+            t.stepOrgTop = juce::Colour(0xffff9d5c); t.stepOrgBot = juce::Colour(0xffff6a00);
+            t.stepBlkTop = juce::Colour(0xff777777); t.stepBlkBot = juce::Colour(0xff555555);
+            t.ledOff = juce::Colour(0xff222222); t.ledOn = juce::Colour(0xffff6633);
+            t.lcdBg = juce::Colour(0xff0a0a0a); t.lcdBorder = juce::Colour(0xff222222);
+            t.lcdBright = juce::Colour(0xff33cc33); t.lcdDim = juce::Colour(0xff116611);
+            t.gridLine = juce::Colour(0xff555555); t.gridLabelBg = juce::Colour(0xff444444);
+            t.cellActive = juce::Colour(0xffff8833); t.cellAccent = juce::Colour(0xffff6633);
+            t.textDark = juce::Colour(0xffcccccc); t.textMid = juce::Colour(0xffaaaaaa);
+            t.textLight = juce::Colour(0xff888888); t.textWhite = juce::Colour(0xffffffff);
+            return t;
+        }
+    };
+
+    // Convenience namespace - using global theme
     namespace Clr
     {
-        const juce::Colour beige        { 0xffd8d8d2 };
-        const juce::Colour panelBg      { 0xffe5e5df };
-        const juce::Colour mainGrey     { 0xffc8c8c0 };
-        const juce::Colour darkGrey     { 0xff4a4a4a };
-        const juce::Colour orange       { 0xffff6a00 };
-        const juce::Colour orangeDark   { 0xffb34a00 };
-        const juce::Colour idleGrey     { 0xff2a2a2a };
-        const juce::Colour footerGrey   { 0xffb0b0a8 };
-        const juce::Colour borderLight  { 0xffb8b8b0 };
-        const juce::Colour headerBorder { 0xffa8a8a0 };
+        static juce::Colour beige, panelBg, mainGrey, darkGrey;
+        static juce::Colour orange, orangeDark, idleGrey, footerGrey;
+        static juce::Colour borderLight, headerBorder;
+        static juce::Colour stepWhiteTop, stepWhiteBot, stepOrgTop, stepOrgBot;
+        static juce::Colour stepBlkTop, stepBlkBot;
+        static juce::Colour ledOff, ledOn;
+        static juce::Colour lcdBg, lcdBorder, lcdBright, lcdDim;
+        static juce::Colour gridLine, gridLabelBg, cellActive, cellAccent;
+        static juce::Colour textDark, textMid, textLight, textWhite;
+    }
 
-        const juce::Colour stepWhiteTop { 0xffeeeeee };
-        const juce::Colour stepWhiteBot { 0xffcccccc };
-        const juce::Colour stepOrgTop   { 0xffff9d5c };
-        const juce::Colour stepOrgBot   { 0xffff6a00 };
-        const juce::Colour stepBlkTop   { 0xff555555 };
-        const juce::Colour stepBlkBot   { 0xff222222 };
+    static void applyTheme(const Theme& theme)
+    {
+        Clr::beige = theme.beige; Clr::panelBg = theme.panelBg;
+        Clr::mainGrey = theme.mainGrey; Clr::darkGrey = theme.darkGrey;
+        Clr::orange = theme.orange; Clr::orangeDark = theme.orangeDark;
+        Clr::idleGrey = theme.idleGrey; Clr::footerGrey = theme.footerGrey;
+        Clr::borderLight = theme.borderLight; Clr::headerBorder = theme.headerBorder;
+        Clr::stepWhiteTop = theme.stepWhiteTop; Clr::stepWhiteBot = theme.stepWhiteBot;
+        Clr::stepOrgTop = theme.stepOrgTop; Clr::stepOrgBot = theme.stepOrgBot;
+        Clr::stepBlkTop = theme.stepBlkTop; Clr::stepBlkBot = theme.stepBlkBot;
+        Clr::ledOff = theme.ledOff; Clr::ledOn = theme.ledOn;
+        Clr::lcdBg = theme.lcdBg; Clr::lcdBorder = theme.lcdBorder;
+        Clr::lcdBright = theme.lcdBright; Clr::lcdDim = theme.lcdDim;
+        Clr::gridLine = theme.gridLine; Clr::gridLabelBg = theme.gridLabelBg;
+        Clr::cellActive = theme.cellActive; Clr::cellAccent = theme.cellAccent;
+        Clr::textDark = theme.textDark; Clr::textMid = theme.textMid;
+        Clr::textLight = theme.textLight; Clr::textWhite = theme.textWhite;
+    }
 
-        const juce::Colour ledOff       { 0xff444444 };
-        const juce::Colour ledOn        { 0xffff3300 };
+    // Initialize with light theme
+    static struct ThemeInitializer {
+        ThemeInitializer() { applyTheme(Theme::light()); }
+    } themeInit;
 
-        const juce::Colour lcdBg        { 0xff1a1a1a };
-        const juce::Colour lcdBorder    { 0xff333333 };
-        const juce::Colour lcdBright    { 0xffcc3333 };
-        const juce::Colour lcdDim       { 0xff661111 };
+    // LCD Color Presets
+    enum class LCDColor { Green, Red, Amber, Blue, Cyan, White };
 
-        const juce::Colour gridLine     { 0xffb8b8b0 };
-        const juce::Colour gridLabelBg  { 0xffd0d0c8 };
-        const juce::Colour cellActive   { 0xffff6a00 };
-        const juce::Colour cellAccent   { 0xffff3300 };
-
-        const juce::Colour textDark     { 0xff333333 };
-        const juce::Colour textMid      { 0xff555555 };
-        const juce::Colour textLight    { 0xff777777 };
-        const juce::Colour textWhite    { 0xffffffff };
+    static void setLCDColor(LCDColor color)
+    {
+        switch (color)
+        {
+            case LCDColor::Green:
+                Clr::lcdBright = juce::Colour(0xff33cc33);
+                Clr::lcdDim    = juce::Colour(0xff116611);
+                break;
+            case LCDColor::Red:
+                Clr::lcdBright = juce::Colour(0xffcc3333);
+                Clr::lcdDim    = juce::Colour(0xff661111);
+                break;
+            case LCDColor::Amber:
+                Clr::lcdBright = juce::Colour(0xffffaa00);
+                Clr::lcdDim    = juce::Colour(0xff885500);
+                break;
+            case LCDColor::Blue:
+                Clr::lcdBright = juce::Colour(0xff3399ff);
+                Clr::lcdDim    = juce::Colour(0xff114488);
+                break;
+            case LCDColor::Cyan:
+                Clr::lcdBright = juce::Colour(0xff00ffff);
+                Clr::lcdDim    = juce::Colour(0xff008888);
+                break;
+            case LCDColor::White:
+                Clr::lcdBright = juce::Colour(0xffffffff);
+                Clr::lcdDim    = juce::Colour(0xff888888);
+                break;
+        }
     }
 
     // =========================================================================
@@ -196,26 +284,148 @@ namespace rb338
     };
 
     // =========================================================================
-    // LCD Display with Shuffle Control
+    // Settings Panel
+    // =========================================================================
+    class SettingsPanel : public juce::Component
+    {
+    public:
+        std::function<void()> onThemeChanged;
+        std::function<void()> onClose;
+
+        SettingsPanel()
+        {
+            addAndMakeVisible(titleLabel);
+            titleLabel.setText("SETTINGS", juce::dontSendNotification);
+            titleLabel.setFont(juce::Font(14.0f, juce::Font::bold));
+            titleLabel.setJustificationType(juce::Justification::centred);
+
+            // Dark mode toggle
+            addAndMakeVisible(darkModeLabel);
+            darkModeLabel.setText("Dark Mode:", juce::dontSendNotification);
+            darkModeLabel.setFont(juce::Font(12.0f, juce::Font::plain));
+
+            addAndMakeVisible(darkModeToggle);
+            darkModeToggle.setButtonText("OFF");
+            darkModeToggle.onClick = [this]() {
+                bool isDark = darkModeToggle.getToggleState();
+                darkModeToggle.setButtonText(isDark ? "ON" : "OFF");
+                applyTheme(isDark ? Theme::dark() : Theme::light());
+                if (onThemeChanged) onThemeChanged();
+            };
+
+            // LCD Color selector
+            addAndMakeVisible(lcdColorLabel);
+            lcdColorLabel.setText("LCD Color:", juce::dontSendNotification);
+            lcdColorLabel.setFont(juce::Font(12.0f, juce::Font::plain));
+
+            const char* colors[] = { "Green", "Red", "Amber", "Blue", "Cyan", "White" };
+            for (int i = 0; i < 6; ++i)
+            {
+                auto* btn = new juce::TextButton(colors[i]);
+                btn->onClick = [this, i]() {
+                    setLCDColor((LCDColor)i);
+                    if (onThemeChanged) onThemeChanged();
+                };
+                addAndMakeVisible(btn);
+                colorButtons.add(btn);
+            }
+
+            // Close button
+            addAndMakeVisible(closeButton);
+            closeButton.setButtonText("CLOSE");
+            closeButton.onClick = [this]() { if (onClose) onClose(); };
+        }
+
+        void paint(juce::Graphics& g) override
+        {
+            // Semi-transparent overlay
+            g.fillAll(juce::Colours::black.withAlpha(0.8f));
+
+            // Panel background
+            auto bounds = getLocalBounds().reduced(100, 80);
+            g.setColour(Clr::mainGrey);
+            g.fillRoundedRectangle(bounds.toFloat(), 8.0f);
+            g.setColour(Clr::borderLight);
+            g.drawRoundedRectangle(bounds.toFloat(), 8.0f, 2.0f);
+        }
+
+        void resized() override
+        {
+            auto bounds = getLocalBounds().reduced(100, 80);
+            auto area = bounds.reduced(20);
+
+            titleLabel.setBounds(area.removeFromTop(30));
+            area.removeFromTop(10);
+
+            // Dark mode row
+            auto darkRow = area.removeFromTop(30);
+            darkModeLabel.setBounds(darkRow.removeFromLeft(100));
+            darkModeToggle.setBounds(darkRow.removeFromLeft(80).reduced(0, 2));
+            area.removeFromTop(15);
+
+            // LCD color row
+            auto lcdRow = area.removeFromTop(30);
+            lcdColorLabel.setBounds(lcdRow.removeFromLeft(100));
+            area.removeFromTop(10);
+
+            // Color buttons (2 rows of 3)
+            for (int row = 0; row < 2; ++row)
+            {
+                auto btnRow = area.removeFromTop(35);
+                btnRow.removeFromLeft(20);
+                for (int col = 0; col < 3; ++col)
+                {
+                    int idx = row * 3 + col;
+                    colorButtons[idx]->setBounds(btnRow.removeFromLeft(90).reduced(2));
+                    btnRow.removeFromLeft(5);
+                }
+                area.removeFromTop(5);
+            }
+
+            area.removeFromTop(20);
+            closeButton.setBounds(area.removeFromTop(40).reduced(bounds.getWidth() / 3, 0));
+        }
+
+    private:
+        juce::Label titleLabel, darkModeLabel, lcdColorLabel;
+        juce::ToggleButton darkModeToggle;
+        juce::OwnedArray<juce::TextButton> colorButtons;
+        juce::TextButton closeButton;
+    };
+
+    // =========================================================================
+    // LCD Display with Shuffle & Accent Controls
     // =========================================================================
     class LCDDisplay : public juce::Component, private juce::Slider::Listener
     {
     public:
         LCDDisplay(Engine& e) : engine(e)
         {
+            // Shuffle knob
             shuffleSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
             shuffleSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
             shuffleSlider.setRange(0.0, 1.0, 0.01);
             shuffleSlider.setValue(0.0);
             shuffleSlider.addListener(this);
-            shuffleSlider.setDoubleClickReturnValue(true, 0.0); // Double-click resets to 0 (no shuffle)
+            shuffleSlider.setDoubleClickReturnValue(true, 0.0);
             addAndMakeVisible(shuffleSlider);
+
+            // Accent level knob
+            accentSlider.setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
+            accentSlider.setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
+            accentSlider.setRange(0.0, 1.0, 0.01);
+            accentSlider.setValue(0.5); // Default 50% accent boost
+            accentSlider.addListener(this);
+            accentSlider.setDoubleClickReturnValue(true, 0.5);
+            addAndMakeVisible(accentSlider);
         }
 
         void paint(juce::Graphics& g) override
         {
             auto b = getLocalBounds().toFloat();
-            auto shuffleArea = b.removeFromRight(60); // Reserve space for shuffle knob
+            auto controlsArea = b.removeFromRight(120); // Space for both knobs
+            auto accentArea = controlsArea.removeFromRight(60);
+            auto shuffleArea = controlsArea;
 
             g.setColour(Clr::lcdBg);
             g.fillRoundedRectangle(b, 6.0f);
@@ -246,24 +456,30 @@ namespace rb338
             g.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 28.0f, juce::Font::bold));
             g.drawText(juce::String(bpm, 2), inner, juce::Justification::centredRight, false);
 
-            // Shuffle label
+            // Control labels
             g.setColour(Clr::textDark);
             g.setFont(juce::Font(7.0f, juce::Font::bold));
             g.drawText("SHUFFLE", shuffleArea.getX(), shuffleArea.getBottom() - 10, 60, 10,
+                       juce::Justification::centred, false);
+            g.drawText("ACCENT", accentArea.getX(), accentArea.getBottom() - 10, 60, 10,
                        juce::Justification::centred, false);
         }
 
         void resized() override
         {
             auto area = getLocalBounds();
-            auto shuffleArea = area.removeFromRight(60);
+            auto controlsArea = area.removeFromRight(120);
+            auto accentArea = controlsArea.removeFromRight(60);
+            auto shuffleArea = controlsArea;
+
             shuffleSlider.setBounds(shuffleArea.reduced(10, 8).removeFromTop(38));
+            accentSlider.setBounds(accentArea.reduced(10, 8).removeFromTop(38));
         }
 
         void mouseWheelMove(const juce::MouseEvent& e, const juce::MouseWheelDetails& wheel) override
         {
-            // Only handle wheel on LCD area, not shuffle knob
-            if (e.x < getWidth() - 60)
+            // Only handle wheel on LCD area, not control knobs (120px on right)
+            if (e.x < getWidth() - 120)
             {
                 currentBpm = juce::jlimit(60.0f, 180.0f, currentBpm + wheel.deltaY * 2.0f);
                 engine.setBpm(currentBpm);
@@ -273,8 +489,8 @@ namespace rb338
 
         void mouseDrag(const juce::MouseEvent& e) override
         {
-            // Only handle drag on LCD area, not shuffle knob
-            if (e.getMouseDownX() < getWidth() - 60)
+            // Only handle drag on LCD area, not control knobs (120px on right)
+            if (e.getMouseDownX() < getWidth() - 120)
             {
                 auto delta = (float)-e.getDistanceFromDragStartY() * 0.2f;
                 auto newBpm = juce::jlimit(60.0f, 180.0f, dragStartBpm + delta);
@@ -298,12 +514,17 @@ namespace rb338
         Engine& engine;
         float dragStartBpm = 120.0f;
         juce::Slider shuffleSlider;
+        juce::Slider accentSlider;
 
         void sliderValueChanged(juce::Slider* slider) override
         {
             if (slider == &shuffleSlider)
             {
                 engine.getSequencer().setShuffle((float)slider->getValue());
+            }
+            else if (slider == &accentSlider)
+            {
+                engine.setAccentLevel((float)slider->getValue());
             }
         }
     };
@@ -348,8 +569,9 @@ namespace rb338
                 if (knobs[i] != nullptr)
                 {
                     auto kb = knobs[i]->getBounds();
+                    // Reduced extension from ±8px to ±4px to prevent overlap
                     g.drawText(juce::String(sectionDef.knobs[i].label).toUpperCase(),
-                               kb.getX() - 8, kb.getBottom() + 1, kb.getWidth() + 16, 10,
+                               kb.getX() - 4, kb.getBottom() + 3, kb.getWidth() + 8, 12,
                                juce::Justification::centred, false);
                 }
             }
@@ -366,13 +588,13 @@ namespace rb338
         {
             auto b = getLocalBounds();
             b.removeFromTop(20); // title
-            b = b.reduced(8, 0);
+            b = b.reduced(4, 0); // Reduced from 8 for more horizontal space
 
             int cols = 2;
             int knobSize = 38;
-            int vGap = 14; // space for label below knob
+            int vGap = 20; // Space for label below knob
             int hGap = (b.getWidth() - cols * knobSize) / (cols + 1);
-            if (hGap < 2) hGap = 2;
+            if (hGap < 4) hGap = 4; // Minimum gap increased from 2 to 4
 
             for (int i = 0; i < sectionDef.numKnobs; ++i)
             {
@@ -1072,10 +1294,10 @@ namespace rb338
             auto header = area.removeFromTop(headerH);
 
             // LCD + buttons (top-right of header)
-            auto topRight = header.removeFromRight(380);
+            auto topRight = header.removeFromRight(440); // Increased for accent knob
             topRight.removeFromTop(8);
             auto lcdRow = topRight.removeFromTop(60);
-            lcd->setBounds(lcdRow.removeFromLeft(220).reduced(4));
+            lcd->setBounds(lcdRow.removeFromLeft(280).reduced(4)); // Wider for both knobs
 
             auto btnCol = lcdRow;
             btnCol.removeFromLeft(8);
@@ -1087,7 +1309,8 @@ namespace rb338
             helpBtn.setBounds(btnRow2.removeFromLeft(60).reduced(2));
 
             // Instrument sections (bottom of header)
-            auto secRow = header.removeFromBottom(110);
+            auto secRow = header.removeFromBottom(140);  // Increased for label space + padding from border
+            secRow.removeFromBottom(10); // Extra padding above the header border line
             secRow.removeFromLeft(8);
             secRow.removeFromRight(8);
             int secW = secRow.getWidth() / numSections;
@@ -1144,9 +1367,9 @@ namespace rb338
         Instrument selectedInstrument = Instrument::Kick;
         bool panelExpanded = false;
 
-        static constexpr int headerH = 190;
+        static constexpr int headerH = 220;  // Increased from 190 for knob label visibility
         static constexpr int footerH = 40;
-        static constexpr int collapsedHeight = 400;
+        static constexpr int collapsedHeight = 430; // Adjusted for new header height
 
         int expandedHeight() const { return collapsedHeight + grid->getDesiredHeight(); }
 
