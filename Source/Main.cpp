@@ -1451,7 +1451,7 @@ namespace rb338
         }
     };
 
-    class RB338RenewedApplication : public juce::JUCEApplication
+    class LoS9x9Application : public juce::JUCEApplication
     {
     public:
         const juce::String getApplicationName() override { return "LoS.9x9 Rhythm Composer"; }
@@ -1464,4 +1464,4 @@ namespace rb338
     };
 }
 
-START_JUCE_APPLICATION(rb338::RB338RenewedApplication)
+START_JUCE_APPLICATION(rb338::LoS9x9Application)

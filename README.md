@@ -3,7 +3,6 @@
 <div align="center">
 
 **A modern TR-909-style drum machine built with JUCE**
-*Formerly RB-338 Renewed*
 
 [![macOS](https://img.shields.io/badge/platform-macOS-lightgrey.svg?style=flat-square)](https://www.apple.com/macos/)
 [![JUCE](https://img.shields.io/badge/framework-JUCE-orange.svg?style=flat-square)](https://juce.com/)
@@ -122,7 +121,7 @@ cmake -S . -B build
 cmake --build build
 
 # 4. Launch the app
-open "build/RB338Renewed_artefacts/RB-338 Renewed.app"
+open "build/LoS9x9_artefacts/Debug/LoS9x9.app"
 ```
 
 ### Clean Build

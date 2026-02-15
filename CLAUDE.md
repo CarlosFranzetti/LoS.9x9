@@ -4,13 +4,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-RB-338 Renewed is a standalone JUCE macOS application implementing a TR-909-style drum machine with:
+LoS.9x9 is a standalone JUCE macOS application implementing a TR-909-style drum machine with:
 - 16-step sequencer for 11 instruments (Kick, Snare, Clap, Rim, 3 Toms, Closed/Open Hat, Crash, Ride)
 - Per-instrument mixer with level, pan, and delay send controls
 - Synthesized placeholder sounds that can be replaced via sample loading (.wav, .aif, .aiff)
 - Simple stereo delay effect
 
-**Naming:** The application displays as "LoS.9x9 Rhythm Composer" in the UI, while the project/build artifacts use "RB-338 Renewed".
+**Naming:** The application displays as "LoS.9x9 Rhythm Composer" in the UI, with the project name "LoS9x9" used in build artifacts.
 
 This is Phase 1, focused on sequencing, playback, and mixer functionality.
 
@@ -33,7 +33,7 @@ cmake --build build
 ```
 
 **Run:**
-The app binary is generated in `build/RB338Renewed_artefacts/Debug/` (or `Release/` depending on configuration). Launch from Finder or directly from the build output path.
+The app binary is generated in `build/LoS9x9_artefacts/Debug/` (or `Release/` depending on configuration). Launch from Finder or directly from the build output path.
 
 **Clean build:**
 ```sh
