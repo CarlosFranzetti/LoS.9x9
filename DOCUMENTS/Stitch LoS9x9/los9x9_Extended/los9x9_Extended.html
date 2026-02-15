@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport"/>
+<title>LoS.9x9 Expanded Rhythm Composer</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&amp;family=Inter:wght@400;700;900&amp;family=JetBrains+Mono:wght@400;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style type="text/tailwindcss">
+        :root {
+            --tr-beige: #d8d8d2;
+            --tr-dark-grey: #4a4a4a;
+            --tr-orange: #ff6a00;
+            --tr-button-light: #ffffff;
+            --tr-panel-bg: #e5e5df;
+            --idle-grey: #2a2a2a;
+            --grid-line: #b8b8b0;
+        }
+        @layer base {
+            body {
+                @apply bg-[#c8c8c0] text-[#333] font-sans overflow-x-auto selection:bg-orange-200;
+                -webkit-tap-highlight-color: transparent;
+            }
+        }
+        .vst-container {
+            min-width: 1024px;
+            height: auto;
+            display: flex;
+            flex-direction: column;
+            background-color: var(--tr-beige);
+            box-shadow: inset 0 0 60px rgba(0,0,0,0.1);
+        }
+        .knob-3d {
+            @apply w-10 h-10 rounded-full relative cursor-pointer;
+            background: radial-gradient(circle at 30% 30%, #666 0%, #222 70%, #000 100%);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4), inset 0 2px 2px rgba(255,255,255,0.2);
+        }
+        .knob-pointer {
+            @apply absolute top-1 left-1/2 -translate-x-1/2 w-1 h-3 rounded-full;
+            background-color: var(--tr-orange);
+            transform-origin: 50% 16px;
+        }
+        .instrument-section {
+            @apply border-r border-[#b8b8b0] px-4 py-2 flex flex-col items-center min-w-[130px];
+        }
+        .step-button {
+            @apply w-12 h-12 rounded shadow-md flex flex-col items-center justify-between p-1 transition-all active:translate-y-px;
+            background: linear-gradient(to bottom, #eeeeee, #cccccc);
+            border: 1px solid #999;
+        }
+        .step-button-orange {
+            background: linear-gradient(to bottom, #ff9d5c, var(--tr-orange));
+            border-color: #b34a00;
+        }
+        .step-button-black {
+            background: linear-gradient(to bottom, #555, #222);
+            border-color: #000;
+        }
+        .step-led-small {
+            @apply w-3 h-1.5 rounded-full mb-1;
+            background: #444;
+            box-shadow: inset 0 1px 2px rgba(0,0,0,0.5);
+        }
+        .step-led-small.active {
+            background: #ff3300;
+            box-shadow: 0 0 6px rgba(255, 51, 0, 0.9), inset 0 1px 1px rgba(255,255,255,0.4);
+        }
+        .main-btn {
+            @apply bg-white border-2 border-[#a0a0a0] rounded-sm font-bold uppercase text-[10px] active:translate-y-px transition-transform flex items-center justify-center;
+            box-shadow: 0 2px 0 #888;
+        }
+        .orange-btn {
+            @apply bg-[var(--tr-orange)] text-white border-none;
+            box-shadow: 0 2px 0 #b34a00;
+        }
+        .panel-on-btn {
+            @apply bg-[var(--tr-orange)] text-white border-none;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.4);
+        }
+        .lcd-display {
+            background-color: #1a1a1a;
+            border: 2px solid #333;
+            box-shadow: inset 0 2px 10px rgba(0,0,0,0.5);
+        }.seq-grid-row {
+            @apply flex border-b border-[var(--grid-line)] items-center h-8;
+        }
+        .seq-label {
+            @apply w-12 flex items-center justify-center text-[10px] font-black border-r border-[var(--grid-line)] h-full bg-[#d0d0c8] sticky left-0 z-10;
+        }
+        .seq-cell {
+            @apply w-12 h-full border-r border-[var(--grid-line)] flex items-center justify-center cursor-pointer hover:bg-white/10;
+        }
+        .seq-cell-active {
+            @apply bg-[var(--tr-orange)] shadow-[inset_0_0_8px_rgba(255,255,255,0.4)];
+        }
+        .seq-cell-accent {
+            @apply bg-[#ff3300];
+        }
+        .no-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .no-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+        .industrial-font {
+            font-family: 'Inter', sans-serif;
+            letter-spacing: -0.05em;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="no-scrollbar">
+<div class="vst-container">
+<header class="p-4 border-b border-[#a8a8a0] bg-[var(--tr-beige)] flex flex-col gap-4">
+<div class="flex justify-between items-start">
+<div class="flex flex-col">
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black industrial-font tracking-tighter text-[#333]">LoS.<span class="text-[var(--tr-orange)]">9x9</span></span>
+<span class="text-lg font-bold tracking-[0.1em] text-[#555] opacity-90 uppercase industrial-font">Rhythm Composer</span>
+</div>
+<div class="text-[9px] font-bold text-[#777] uppercase tracking-[0.2em] mt-1">Computer Controlled</div>
+</div>
+<div class="flex gap-4">
+<div class="lcd-display rounded-md p-3 w-64 flex flex-col gap-1">
+<div class="flex justify-between text-[10px] font-mono text-red-900 opacity-60">
+<span>PATTERN</span>
+<span class="text-red-900">● SYNC</span>
+</div>
+<div class="flex justify-between items-baseline">
+<span class="text-3xl font-bold font-mono text-red-600">01-A</span>
+<span class="text-4xl font-bold font-mono text-red-600">120.00</span>
+</div>
+</div>
+<div class="flex flex-col gap-2">
+<div class="flex gap-2">
+<button class="main-btn w-16 h-10 orange-btn">START</button>
+<button class="main-btn w-16 h-10">STOP</button>
+</div>
+<div class="flex gap-2">
+<button class="main-btn px-2 h-8 panel-on-btn">PANEL</button>
+<button class="main-btn px-2 h-8">HELP</button>
+</div>
+</div>
+</div>
+</div>
+<div class="flex overflow-x-auto no-scrollbar py-1">
+<div class="instrument-section">
+<span class="text-[10px] font-black uppercase mb-3 tracking-tighter">Bass Drum</span>
+<div class="grid grid-cols-2 gap-x-4 gap-y-3">
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(-30deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Tune</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(45deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Level</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(-60deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Attack</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(100deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Decay</span></div>
+</div>
+</div>
+<div class="instrument-section">
+<span class="text-[10px] font-black uppercase mb-3 tracking-tighter">Snare Drum</span>
+<div class="grid grid-cols-2 gap-x-4 gap-y-3">
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(10deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Tune</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(60deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Level</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(-15deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Tone</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(20deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Snappy</span></div>
+</div>
+</div>
+<div class="instrument-section">
+<span class="text-[10px] font-black uppercase mb-3 tracking-tighter">Toms</span>
+<div class="grid grid-cols-3 gap-x-3 gap-y-3">
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(-45deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Low</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(0deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Mid</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(30deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Hi</span></div>
+</div>
+</div>
+<div class="instrument-section">
+<span class="text-[10px] font-black uppercase mb-3 tracking-tighter">Rim / Clap</span>
+<div class="grid grid-cols-2 gap-x-4 gap-y-3">
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(-30deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Rim</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(15deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Clap</span></div>
+</div>
+</div>
+<div class="instrument-section">
+<span class="text-[10px] font-black uppercase mb-3 tracking-tighter">Hi Hats</span>
+<div class="grid grid-cols-2 gap-x-4 gap-y-3">
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(-30deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">CH</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(45deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">OH</span></div>
+</div>
+</div>
+<div class="instrument-section border-r-0">
+<span class="text-[10px] font-black uppercase mb-3 tracking-tighter">Cymbals</span>
+<div class="grid grid-cols-2 gap-x-4 gap-y-3">
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(-10deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Crash</span></div>
+<div class="flex flex-col items-center gap-1"><div class="knob-3d"><div class="knob-pointer" style="transform: rotate(30deg) translateX(-50%)"></div></div><span class="text-[8px] font-bold uppercase">Ride</span></div>
+</div>
+</div>
+</div>
+</header>
+<section class="bg-[#c8c8c0] border-b border-[#a8a8a0] overflow-x-auto no-scrollbar">
+<div class="min-w-fit">
+<div class="seq-grid-row">
+<div class="seq-label">BD</div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">SD</div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">LT</div>
+<div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">MT</div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">HT</div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">RS</div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">CP</div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">HC</div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">OH</div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">CH</div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell seq-cell-active"></div>
+</div>
+<div class="seq-grid-row">
+<div class="seq-label">CY</div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+<div class="seq-cell seq-cell-active"></div><div class="seq-cell"></div><div class="seq-cell"></div><div class="seq-cell"></div>
+</div>
+</div>
+</section>
+<main class="bg-[#c8c8c0] p-6 flex flex-col gap-6">
+<div class="flex flex-col gap-6">
+<div class="flex gap-2">
+<div class="step-button"><div class="step-led-small active"></div><span class="text-[10px] font-black">1</span></div>
+<div class="step-button"><div class="step-led-small"></div><span class="text-[10px] font-black">2</span></div>
+<div class="step-button"><div class="step-led-small"></div><span class="text-[10px] font-black">3</span></div>
+<div class="step-button"><div class="step-led-small"></div><span class="text-[10px] font-black">4</span></div>
+<div class="w-2"></div>
+<div class="step-button step-button-orange"><div class="step-led-small active"></div><span class="text-[10px] font-black text-white">5</span></div>
+<div class="step-button step-button-orange"><div class="step-led-small"></div><span class="text-[10px] font-black text-white">6</span></div>
+<div class="step-button step-button-orange"><div class="step-led-small"></div><span class="text-[10px] font-black text-white">7</span></div>
+<div class="step-button step-button-orange"><div class="step-led-small"></div><span class="text-[10px] font-black text-white">8</span></div>
+<div class="w-2"></div>
+<div class="step-button"><div class="step-led-small active"></div><span class="text-[10px] font-black">9</span></div>
+<div class="step-button"><div class="step-led-small"></div><span class="text-[10px] font-black">10</span></div>
+<div class="step-button"><div class="step-led-small"></div><span class="text-[10px] font-black">11</span></div>
+<div class="step-button"><div class="step-led-small"></div><span class="text-[10px] font-black">12</span></div>
+<div class="w-2"></div>
+<div class="step-button step-button-black"><div class="step-led-small active"></div><span class="text-[10px] font-black text-white">13</span></div>
+<div class="step-button step-button-black"><div class="step-led-small"></div><span class="text-[10px] font-black text-white">14</span></div>
+<div class="step-button step-button-black"><div class="step-led-small"></div><span class="text-[10px] font-black text-white">15</span></div>
+<div class="step-button step-button-black"><div class="step-led-small"></div><span class="text-[10px] font-black text-white">16</span></div>
+</div>
+<div class="bg-[var(--idle-grey)] px-4 py-2 rounded flex items-center gap-4 border border-[#444] self-start min-w-[420px]">
+<div class="flex items-center gap-2 border-r border-[#444] pr-4">
+<span class="text-[9px] font-bold text-white bg-[#444] px-1.5 py-0.5 rounded">RPM</span>
+</div>
+<div class="font-mono text-[10px] text-[#888] tracking-widest uppercase font-bold">
+                    SYSTEM ACTIVE - INTERNAL CLOCK SYNCED
+                </div>
+<div class="ml-auto flex gap-1 items-center">
+<span class="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_5px_#22c55e]"></span>
+</div>
+</div>
+</div>
+</main>
+<footer class="h-10 bg-[#b0b0a8] border-t border-[#888] flex items-center px-6 justify-between">
+<div class="flex gap-8">
+<div class="flex items-center gap-2">
+<span class="text-[9px] font-bold text-[#555] uppercase">Bank</span>
+<div class="flex gap-1">
+<button class="w-5 h-5 bg-[var(--tr-orange)] text-white text-[8px] font-bold rounded-sm">A</button>
+<button class="w-5 h-5 bg-white border border-[#888] text-[#555] text-[8px] font-bold rounded-sm">B</button>
+</div>
+</div>
+<div class="flex items-center gap-2">
+<span class="text-[9px] font-bold text-[#555] uppercase">Mode</span>
+<button class="px-2 h-5 bg-[#333] text-white text-[8px] font-bold rounded-sm uppercase tracking-tighter">Pattern Write</button>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="text-[9px] font-bold text-[#444] uppercase tracking-widest industrial-font">LoS.9x9 RHYTHM COMPOSER • EXPANDED VIEW</span>
+</div>
+</footer>
+</div>
+
+</body></html>

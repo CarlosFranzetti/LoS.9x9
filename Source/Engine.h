@@ -1,0 +1,58 @@
+#pragma once
+
+#include <JuceHeader.h>
+#include "Samples.h"
+#include "Sequencer.h"
+
+namespace rb338
+{
+    struct MixerChannel
+    {
+        float level = 0.9f;
+        float pan = 0.0f; // -1..1
+        float delaySend = 0.0f;
+        InstrumentParams params; // TR-909 voice parameters
+    };
+
+    class Engine
+    {
+    public:
+        void prepare(double sampleRate, int samplesPerBlock, int numOutputs);
+        void render(juce::AudioBuffer<float>& buffer, int numSamples);
+
+        void setBpm(float bpm);
+        void setRunning(bool running);
+        bool isRunning() const;
+
+        Sequencer& getSequencer();
+        SampleLibrary& getSampleLibrary();
+
+        MixerChannel& getChannel(Instrument instrument);
+        void updateInstrumentSound(Instrument instrument);
+
+    private:
+        struct VoiceInstance
+        {
+            const Sample* sample = nullptr;
+            int position = 0;
+            float gain = 1.0f;
+        };
+
+        double sampleRate = 44100.0;
+        SampleLibrary sampleLibrary;
+        Sequencer sequencer;
+
+        juce::Array<VoiceInstance> voices[(int)Instrument::Count];
+        MixerChannel channels[(int)Instrument::Count];
+
+        juce::AudioBuffer<float> delayBuffer;
+        int delayWritePos = 0;
+        int delaySamples = 1;
+        float delayFeedback = 0.15f;  // Reduced from 0.35 (less prominent)
+        float delayMix = 0.08f;        // Reduced from 0.2 (subtle effect)
+
+        float renderInstrument(Instrument instrument);
+        void clearVoices(Instrument instrument);
+        void setupDelay(double sampleRate);
+    };
+}
