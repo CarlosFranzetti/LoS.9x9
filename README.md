@@ -1,4 +1,4 @@
-# 🥁 RB-338 Renewed • LoS.9x9 Rhythm Composer
+# 🥁 LoS.9x9 Rhythm Composer
 
 <div align="center">
 
