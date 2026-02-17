@@ -234,6 +234,29 @@ output = (osc1*0.7 + osc2*0.3 + click) * envelope;
 - **Project** - Pattern storage (future phase)
 - **MIDI** - MIDI sync (future phase)
 
+### External TR-909 Reference Pack (Legal Workflow)
+
+LoS.9x9 can auto-load your legally obtained TR-909 one-shots for:
+- Clap (`CP`)
+- Closed Hi-Hat (`CH`)
+- Open Hi-Hat (`OH`)
+- Crash (`CR`)
+- Ride (`RD`)
+
+Supported locations:
+- `$LOS9X9_SAMPLE_PACK` (environment variable)
+- `Samples/TR-909_JP` (from current working directory)
+- `TR-909_JP` (from current working directory)
+
+Supported filenames (case-insensitive, `.wav/.aif/.aiff/.flac`):
+- Clap: `clap`, `cp`, `handclap`, `tr909_clap`, `909_clap`
+- Closed Hat: `ch`, `closedhat`, `closed_hat`, `hh_closed`, `hihat_closed`, `hat_closed`
+- Open Hat: `oh`, `openhat`, `open_hat`, `hh_open`, `hihat_open`, `hat_open`
+- Crash: `crash`, `cr`, `crash_cymbal`, `cym_crash`
+- Ride: `ride`, `rd`, `ride_cymbal`, `cym_ride`
+
+The engine applies hardware-style tone/tune/decay shaping on top of these samples so the panel knobs still behave musically like the unit.
+
 ---
 
 ## 🎨 Design & Aesthetic
