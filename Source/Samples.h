@@ -1,6 +1,7 @@
 #pragma once
 
 #include <JuceHeader.h>
+#include <array>
 
 namespace rb338
 {
@@ -45,7 +46,11 @@ namespace rb338
 
     private:
         Sample samples[(int)Instrument::Count];
+        std::array<Sample, (size_t)Instrument::Count> referenceSamples;
+        std::array<bool, (size_t)Instrument::Count> hasReferenceSamples = {};
         void generateDefaults(double sampleRate);
+        void tryLoadReferencePack(double sampleRate);
+        Sample processReferenceSample(Instrument instrument, double sampleRate, const InstrumentParams& params) const;
 
         Sample generateKick(double sampleRate, const InstrumentParams& params) const;
         Sample generateSnare(double sampleRate, const InstrumentParams& params) const;

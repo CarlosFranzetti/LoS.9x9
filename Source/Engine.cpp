@@ -9,6 +9,9 @@ namespace rb338
         sampleLibrary.prepare(sampleRate);
         sequencer.prepare(sampleRate);
         setupDelay(sampleRate);
+
+        for (int inst = 0; inst < (int)Instrument::Count; ++inst)
+            updateInstrumentSound((Instrument)inst);
     }
 
     void Engine::render(juce::AudioBuffer<float>& buffer, int numSamples)
