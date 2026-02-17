@@ -6,17 +6,42 @@ namespace rb338
     {
         sampleRate = newSampleRate;
         samplesUntilNextStep = stepSamples();
+        driftMemoryMs = 0.0f;
     }
 
     void Sequencer::setBpm(float newBpm)
     {
+        const float oldBpm = bpm;
         bpm = juce::jlimit(40.0f, 200.0f, newBpm);
-        samplesUntilNextStep = stepSamples();
+
+        // Keep playback continuous when changing tempo mid-run by scaling the remaining
+        // time to the next step instead of hard-resetting the transport phase.
+        if (running && oldBpm > 0.0f)
+        {
+            const double oldStepSamps = (60.0 / oldBpm) / 4.0 * sampleRate;
+            const double newStepSamps = (60.0 / bpm) / 4.0 * sampleRate;
+            if (oldStepSamps > 0.0)
+                samplesUntilNextStep = juce::jmax(1, (int)std::round(samplesUntilNextStep * (newStepSamps / oldStepSamps)));
+        }
+        else
+        {
+            samplesUntilNextStep = stepSamples();
+        }
     }
 
     void Sequencer::setShuffle(float amount)
     {
         shuffle = juce::jlimit(0.0f, 1.0f, amount);
+    }
+
+    float Sequencer::getBpm() const
+    {
+        return bpm;
+    }
+
+    float Sequencer::getShuffle() const
+    {
+        return shuffle;
     }
 
     void Sequencer::setRunning(bool shouldRun)
@@ -26,6 +51,7 @@ namespace rb338
         {
             samplesUntilNextStep = stepSamples();
             currentStep = 0;
+            driftMemoryMs = 0.0f;
         }
     }
 
@@ -55,9 +81,11 @@ namespace rb338
 
         auto& state = grid[(int)instrument][index];
         if (state == StepState::Off)
-            state = StepState::Accent;  // First click goes to Accent
+            state = StepState::On;
+        else if (state == StepState::On)
+            state = StepState::Accent;
         else
-            state = StepState::Off;      // Second click turns off
+            state = StepState::Off;
     }
 
     void Sequencer::clear()
@@ -69,7 +97,8 @@ namespace rb338
 
     void Sequencer::setLength(int steps)
     {
-        length = juce::jlimit(1, 16, steps);
+        juce::ignoreUnused(steps);
+        length = 16;
     }
 
     int Sequencer::getLength() const
@@ -80,6 +109,73 @@ namespace rb338
     int Sequencer::getCurrentStep() const
     {
         return currentStep;
+    }
+
+    void Sequencer::setAutomationPoint(Instrument instrument, AutomationParam param, int step, float value)
+    {
+        if (step < 0 || step >= 16)
+            return;
+
+        auto instIndex = (int)instrument;
+        auto paramIndex = (int)param;
+        if (instIndex < 0 || instIndex >= (int)Instrument::Count
+            || paramIndex < 0 || paramIndex >= (int)AutomationParam::Count)
+            return;
+
+        automationActive[instIndex][paramIndex][step] = true;
+        automationValue[instIndex][paramIndex][step] = juce::jlimit(0.0f, 1.0f, value);
+    }
+
+    bool Sequencer::getAutomationPoint(Instrument instrument, AutomationParam param, int step, float& valueOut) const
+    {
+        if (step < 0 || step >= 16)
+            return false;
+
+        auto instIndex = (int)instrument;
+        auto paramIndex = (int)param;
+        if (instIndex < 0 || instIndex >= (int)Instrument::Count
+            || paramIndex < 0 || paramIndex >= (int)AutomationParam::Count)
+            return false;
+
+        if (!automationActive[instIndex][paramIndex][step])
+            return false;
+
+        valueOut = automationValue[instIndex][paramIndex][step];
+        return true;
+    }
+
+    bool Sequencer::hasAutomation(Instrument instrument) const
+    {
+        auto instIndex = (int)instrument;
+        if (instIndex < 0 || instIndex >= (int)Instrument::Count)
+            return false;
+
+        for (int param = 0; param < (int)AutomationParam::Count; ++param)
+            for (int step = 0; step < 16; ++step)
+                if (automationActive[instIndex][param][step])
+                    return true;
+
+        return false;
+    }
+
+    void Sequencer::clearAutomation(Instrument instrument)
+    {
+        auto instIndex = (int)instrument;
+        if (instIndex < 0 || instIndex >= (int)Instrument::Count)
+            return;
+
+        for (int param = 0; param < (int)AutomationParam::Count; ++param)
+            for (int step = 0; step < 16; ++step)
+            {
+                automationActive[instIndex][param][step] = false;
+                automationValue[instIndex][param][step] = 0.0f;
+            }
+    }
+
+    void Sequencer::clearAllAutomation()
+    {
+        for (int inst = 0; inst < (int)Instrument::Count; ++inst)
+            clearAutomation((Instrument)inst);
     }
 
     bool Sequencer::nextSample(juce::Array<StepEvent>& events)
@@ -93,7 +189,10 @@ namespace rb338
         if (samplesUntilNextStep > 0)
             return false;
 
-        samplesUntilNextStep = stepSamples() + getStepDelay(currentStep);
+        const int baseStep = stepSamples();
+        const int shuffleDelay = getStepDelay(currentStep);
+        const int analogDrift = getAnalogStepDrift(currentStep);
+        samplesUntilNextStep = juce::jmax(1, baseStep + shuffleDelay + analogDrift);
 
         for (int inst = 0; inst < (int)Instrument::Count; ++inst)
         {
@@ -102,8 +201,9 @@ namespace rb338
             {
                 StepEvent event;
                 event.instrument = (Instrument)inst;
-                event.velocity = (state == StepState::Accent) ? 1.0f : 0.7f;
+                event.velocity = (state == StepState::Accent) ? 1.0f : 0.78f;
                 event.flam = false;
+                event.stepIndex = currentStep;
                 events.add(event);
             }
         }
@@ -129,5 +229,17 @@ namespace rb338
         // Maximum shuffle delay is 33% of step length (triplet feel at max)
         int baseStep = stepSamples();
         return (int)(baseStep * shuffle * 0.33f);
+    }
+
+    int Sequencer::getAnalogStepDrift(int step)
+    {
+        // Subtle analog-style clock wander: tiny and structured, only every 4th step.
+        if (step % 4 != 0)
+            return 0;
+
+        const float targetMs = (timingRng.nextFloat() * 2.0f - 1.0f) * 1.0f; // +/- 1 ms max
+        driftMemoryMs = driftMemoryMs * 0.65f + targetMs * 0.35f;
+        const float clampedMs = juce::jlimit(-1.0f, 1.0f, driftMemoryMs);
+        return (int)std::round(clampedMs * 0.001f * (float)sampleRate);
     }
 }

@@ -5,6 +5,16 @@
 
 namespace rb338
 {
+    enum class AutomationParam
+    {
+        Level = 0,
+        Tune,
+        Decay,
+        Tone,
+        Snappy,
+        Count
+    };
+
     enum class StepState
     {
         Off = 0,
@@ -17,6 +27,7 @@ namespace rb338
         Instrument instrument;
         float velocity = 1.0f;
         bool flam = false;
+        int stepIndex = 0;
     };
 
     class Sequencer
@@ -25,6 +36,8 @@ namespace rb338
         void prepare(double sampleRate);
         void setBpm(float bpm);
         void setShuffle(float amount); // 0.0 = no shuffle, 1.0 = max shuffle
+        float getBpm() const;
+        float getShuffle() const;
         void setRunning(bool shouldRun);
         bool isRunning() const;
 
@@ -38,6 +51,12 @@ namespace rb338
 
         int getCurrentStep() const;
 
+        void setAutomationPoint(Instrument instrument, AutomationParam param, int step, float value);
+        bool getAutomationPoint(Instrument instrument, AutomationParam param, int step, float& valueOut) const;
+        bool hasAutomation(Instrument instrument) const;
+        void clearAutomation(Instrument instrument);
+        void clearAllAutomation();
+
         bool nextSample(juce::Array<StepEvent>& events);
 
     private:
@@ -48,10 +67,15 @@ namespace rb338
         int length = 16;
         int currentStep = 0;
         int samplesUntilNextStep = 0;
+        float driftMemoryMs = 0.0f;
+        juce::Random timingRng { 9099 };
 
         StepState grid[(int)Instrument::Count][16] = {};
+        bool automationActive[(int)Instrument::Count][(int)AutomationParam::Count][16] = {};
+        float automationValue[(int)Instrument::Count][(int)AutomationParam::Count][16] = {};
 
         int stepSamples() const;
         int getStepDelay(int step) const; // Returns shuffle delay for given step
+        int getAnalogStepDrift(int step);
     };
 }

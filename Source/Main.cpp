@@ -1,4 +1,6 @@
 #include <JuceHeader.h>
+#include <array>
+#include <optional>
 #include "Engine.h"
 #include "Sequencer.h"
 
@@ -152,6 +154,19 @@ namespace rb338
         { Instrument::Ride,      "RD" },
     };
     static constexpr int numGridRows = 11;
+    static constexpr int numBanks = 2;
+    static constexpr int numPatternsPerBank = 16;
+
+    struct PatternData
+    {
+        StepState steps[(int)Instrument::Count][16] {};
+        bool automationActive[(int)Instrument::Count][(int)AutomationParam::Count][16] {};
+        float automationValue[(int)Instrument::Count][(int)AutomationParam::Count][16] {};
+        float bpm = 120.0f;
+        float shuffle = 0.0f;
+        float accent = 0.5f;
+        juce::String name;
+    };
 
     // =========================================================================
     // Knob definition for instrument sections
@@ -188,36 +203,62 @@ namespace rb338
         }, 4, true },
         { "Low Tom", {
             { "Tune",  Instrument::TomLow, ParamType::Tune },
-            { "Decay", Instrument::TomLow, ParamType::Decay },
             { "Level", Instrument::TomLow, ParamType::Level },
-            { "", Instrument::Kick, ParamType::Level } // unused
+            { "Decay", Instrument::TomLow, ParamType::Decay },
+            { "", Instrument::Kick, ParamType::Level }
         }, 3, true },
         { "Mid Tom", {
             { "Tune",  Instrument::TomMid, ParamType::Tune },
-            { "Decay", Instrument::TomMid, ParamType::Decay },
             { "Level", Instrument::TomMid, ParamType::Level },
+            { "Decay", Instrument::TomMid, ParamType::Decay },
             { "", Instrument::Kick, ParamType::Level }
         }, 3, true },
-        { "Rim / Clap", {
-            { "Rim Lvl",  Instrument::Rim,  ParamType::Level },
-            { "Clap Lvl", Instrument::Clap, ParamType::Level },
+        { "Hi Tom", {
+            { "Tune",  Instrument::TomHigh, ParamType::Tune },
+            { "Level", Instrument::TomHigh, ParamType::Level },
+            { "Decay", Instrument::TomHigh, ParamType::Decay },
+            { "", Instrument::Kick, ParamType::Level }
+        }, 3, true },
+        { "Rim", {
+            { "Level", Instrument::Rim, ParamType::Level },
+            { "", Instrument::Kick, ParamType::Level },
             { "", Instrument::Kick, ParamType::Level },
             { "", Instrument::Kick, ParamType::Level }
-        }, 2, true },
-        { "Hi Hats", {
-            { "CH Level", Instrument::ClosedHat, ParamType::Level },
-            { "OH Level", Instrument::OpenHat,   ParamType::Level },
-            { "Tune",     Instrument::ClosedHat, ParamType::Tune },
-            { "Tone",     Instrument::ClosedHat, ParamType::Tone }
+        }, 1, true },
+        { "Clap", {
+            { "Level", Instrument::Clap, ParamType::Level },
+            { "", Instrument::Kick, ParamType::Level },
+            { "", Instrument::Kick, ParamType::Level },
+            { "", Instrument::Kick, ParamType::Level }
+        }, 1, true },
+        { "Hi Hat", {
+            { "CH Lvl", Instrument::ClosedHat, ParamType::Level },
+            { "OH Lvl", Instrument::OpenHat,   ParamType::Level },
+            { "CH Dec", Instrument::ClosedHat, ParamType::Decay },
+            { "OH Dec", Instrument::OpenHat,   ParamType::Decay }
         }, 4, true },
-        { "Cymbals", {
-            { "Crash Lvl", Instrument::Crash, ParamType::Level },
-            { "Ride Lvl",  Instrument::Ride,  ParamType::Level },
-            { "", Instrument::Kick, ParamType::Level },
-            { "", Instrument::Kick, ParamType::Level }
-        }, 2, false }
+        { "Cymbal", {
+            { "Crash L", Instrument::Crash, ParamType::Level },
+            { "Ride L",  Instrument::Ride,  ParamType::Level },
+            { "Crash T", Instrument::Crash, ParamType::Tune },
+            { "Ride T",  Instrument::Ride,  ParamType::Tune }
+        }, 4, false }
     };
-    static constexpr int numSections = 7;
+    static constexpr int numSections = 9;
+
+    static AutomationParam toAutomationParam(ParamType param)
+    {
+        switch (param)
+        {
+            case ParamType::Level:  return AutomationParam::Level;
+            case ParamType::Tune:   return AutomationParam::Tune;
+            case ParamType::Decay:  return AutomationParam::Decay;
+            case ParamType::Tone:   return AutomationParam::Tone;
+            case ParamType::Snappy: return AutomationParam::Snappy;
+        }
+
+        return AutomationParam::Level;
+    }
 
     // =========================================================================
     // LookAndFeel
@@ -399,6 +440,9 @@ namespace rb338
     class LCDDisplay : public juce::Component, private juce::Slider::Listener
     {
     public:
+        std::function<void()> onRequestPatternManager;
+        std::function<void(float)> onBpmChanged;
+
         LCDDisplay(Engine& e) : engine(e)
         {
             // Shuffle knob
@@ -418,6 +462,34 @@ namespace rb338
             accentSlider.addListener(this);
             accentSlider.setDoubleClickReturnValue(true, 0.5);
             addAndMakeVisible(accentSlider);
+        }
+
+        void setPatternDisplay(int bank, int pattern, const juce::String& nm)
+        {
+            bankIndex = juce::jlimit(0, numBanks - 1, bank);
+            patternIndex = juce::jlimit(0, numPatternsPerBank - 1, pattern);
+            patternName = nm;
+            repaint();
+        }
+
+        void setBpmValue(float bpm, bool notifyEngine)
+        {
+            const float next = juce::jlimit(60.0f, 180.0f, bpm);
+            if (next == currentBpm)
+                return;
+
+            currentBpm = next;
+            if (notifyEngine)
+                engine.setBpm(currentBpm);
+            if (onBpmChanged)
+                onBpmChanged(currentBpm);
+            repaint();
+        }
+
+        void setShuffleAccent(float shuffle, float accent)
+        {
+            shuffleSlider.setValue(shuffle, juce::dontSendNotification);
+            accentSlider.setValue(accent, juce::dontSendNotification);
         }
 
         void paint(juce::Graphics& g) override
@@ -447,14 +519,21 @@ namespace rb338
 
             inner.removeFromTop(2);
 
-            // Bottom row
+            // Bottom row (extra spacing between pattern ID and BPM for readability).
             g.setColour(Clr::lcdBright);
             g.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 24.0f, juce::Font::bold));
-            g.drawText("01-A", inner, juce::Justification::centredLeft, false);
+            auto patternArea = inner.removeFromLeft(108);
+            inner.removeFromLeft(14);
+            auto bpmArea = inner;
 
-            float bpm = engine.getSequencer().isRunning() ? currentBpm : currentBpm;
+            const juce::String id = juce::String(patternIndex + 1).paddedLeft('0', 2)
+                + "-"
+                + juce::String::charToString((juce_wchar)('A' + bankIndex));
+            g.drawText(id, patternArea, juce::Justification::centredLeft, false);
+
+            float bpm = currentBpm;
             g.setFont(juce::Font(juce::Font::getDefaultMonospacedFontName(), 28.0f, juce::Font::bold));
-            g.drawText(juce::String(bpm, 2), inner, juce::Justification::centredRight, false);
+            g.drawText(juce::String(bpm, 2), bpmArea, juce::Justification::centredRight, false);
 
             // Control labels
             g.setColour(Clr::textDark);
@@ -481,9 +560,7 @@ namespace rb338
             // Only handle wheel on LCD area, not control knobs (120px on right)
             if (e.x < getWidth() - 120)
             {
-                currentBpm = juce::jlimit(60.0f, 180.0f, currentBpm + wheel.deltaY * 2.0f);
-                engine.setBpm(currentBpm);
-                repaint();
+                setBpmValue(currentBpm + wheel.deltaY * 2.0f, true);
             }
         }
 
@@ -496,15 +573,19 @@ namespace rb338
                 auto newBpm = juce::jlimit(60.0f, 180.0f, dragStartBpm + delta);
                 if (newBpm != currentBpm)
                 {
-                    currentBpm = newBpm;
-                    engine.setBpm(currentBpm);
-                    repaint();
+                    setBpmValue(newBpm, true);
                 }
             }
         }
 
-        void mouseDown(const juce::MouseEvent&) override
+        void mouseDown(const juce::MouseEvent& e) override
         {
+            if (e.mods.isPopupMenu() && e.x < getWidth() - 120)
+            {
+                if (onRequestPatternManager)
+                    onRequestPatternManager();
+                return;
+            }
             dragStartBpm = currentBpm;
         }
 
@@ -515,6 +596,9 @@ namespace rb338
         float dragStartBpm = 120.0f;
         juce::Slider shuffleSlider;
         juce::Slider accentSlider;
+        int bankIndex = 0;
+        int patternIndex = 0;
+        juce::String patternName;
 
         void sliderValueChanged(juce::Slider* slider) override
         {
@@ -535,8 +619,8 @@ namespace rb338
     class InstrumentSection : public juce::Component, private juce::Slider::Listener
     {
     public:
-        InstrumentSection(Engine& e, const SectionDef& def)
-            : engine(e), sectionDef(def)
+        InstrumentSection(Engine& e, const SectionDef& def, std::function<void(const KnobDef&, float)> onKnobMoved)
+            : engine(e), sectionDef(def), onKnobMovedCb(std::move(onKnobMoved))
         {
             for (int i = 0; i < def.numKnobs; ++i)
             {
@@ -544,9 +628,10 @@ namespace rb338
                 knob->setSliderStyle(juce::Slider::RotaryHorizontalVerticalDrag);
                 knob->setTextBoxStyle(juce::Slider::NoTextBox, false, 0, 0);
                 knob->setRange(0.0, 1.0, 0.01);
-                knob->setValue(getInitialValue(def.knobs[i]));
+                const float initialValue = getInitialValue(def.knobs[i]);
+                knob->setValue(initialValue);
                 knob->addListener(this);
-                knob->setDoubleClickReturnValue(true, 0.5); // Double-click resets to 0.5 (center)
+                knob->setDoubleClickReturnValue(true, initialValue);
                 addAndMakeVisible(knob);
                 knobs.add(knob);
             }
@@ -558,20 +643,19 @@ namespace rb338
 
             // Title
             g.setColour(Clr::textDark);
-            g.setFont(juce::Font(10.0f, juce::Font::bold));
+            g.setFont(juce::Font(8.0f, juce::Font::bold));
             g.drawText(juce::String(sectionDef.title).toUpperCase(), b.removeFromTop(16).reduced(2, 0),
                        juce::Justification::centred, false);
 
             // Knob labels
-            g.setFont(juce::Font(8.0f, juce::Font::bold));
+            g.setFont(juce::Font(7.0f, juce::Font::bold));
             for (int i = 0; i < sectionDef.numKnobs; ++i)
             {
                 if (knobs[i] != nullptr)
                 {
                     auto kb = knobs[i]->getBounds();
-                    // Reduced extension from ±8px to ±4px to prevent overlap
                     g.drawText(juce::String(sectionDef.knobs[i].label).toUpperCase(),
-                               kb.getX() - 4, kb.getBottom() + 3, kb.getWidth() + 8, 12,
+                               kb.getX() - 1, kb.getBottom() + 2, kb.getWidth() + 2, 11,
                                juce::Justification::centred, false);
                 }
             }
@@ -587,14 +671,14 @@ namespace rb338
         void resized() override
         {
             auto b = getLocalBounds();
-            b.removeFromTop(20); // title
-            b = b.reduced(4, 0); // Reduced from 8 for more horizontal space
+            b.removeFromTop(18);
+            b = b.reduced(4, 0);
 
-            int cols = 2;
-            int knobSize = 38;
-            int vGap = 20; // Space for label below knob
+            int cols = sectionDef.numKnobs > 1 ? 2 : 1;
+            int knobSize = (sectionDef.numKnobs > 1) ? 30 : 34;
+            int vGap = 14;
             int hGap = (b.getWidth() - cols * knobSize) / (cols + 1);
-            if (hGap < 4) hGap = 4; // Minimum gap increased from 2 to 4
+            hGap = juce::jmax(2, hGap);
 
             for (int i = 0; i < sectionDef.numKnobs; ++i)
             {
@@ -610,6 +694,7 @@ namespace rb338
         Engine& engine;
         const SectionDef& sectionDef;
         juce::OwnedArray<juce::Slider> knobs;
+        std::function<void(const KnobDef&, float)> onKnobMovedCb;
 
         float getInitialValue(const KnobDef& kd)
         {
@@ -642,29 +727,23 @@ namespace rb338
                         case ParamType::Tune:
                             ch.params.tune = val;
                             needResynth = true;
-                            // Hi-hats share tune/tone parameters
-                            if (kd.instrument == Instrument::ClosedHat)
-                            {
-                                engine.getChannel(Instrument::OpenHat).params.tune = val;
-                                engine.updateInstrumentSound(Instrument::OpenHat);
-                            }
                             break;
-                        case ParamType::Decay:  ch.params.decay = val;  needResynth = true; break;
+                        case ParamType::Decay:
+                            ch.params.decay = val;
+                            needResynth = true;
+                            break;
                         case ParamType::Tone:
                             ch.params.tone = val;
                             needResynth = true;
-                            // Hi-hats share tune/tone parameters
-                            if (kd.instrument == Instrument::ClosedHat)
-                            {
-                                engine.getChannel(Instrument::OpenHat).params.tone = val;
-                                engine.updateInstrumentSound(Instrument::OpenHat);
-                            }
                             break;
                         case ParamType::Snappy: ch.params.snappy = val; needResynth = true; break;
                     }
 
                     if (needResynth)
                         engine.updateInstrumentSound(kd.instrument);
+
+                    if (onKnobMovedCb)
+                        onKnobMovedCb(kd, val);
                     return;
                 }
             }
@@ -677,12 +756,16 @@ namespace rb338
     class SequencerGrid : public juce::Component
     {
     public:
-        SequencerGrid(Engine& e, std::function<void(Instrument)> onSelectInst)
-            : engine(e), selectInstrumentCb(std::move(onSelectInst)) {}
+        SequencerGrid(Engine& e,
+                      std::function<void(Instrument)> onSelectInst,
+                      std::function<void(Instrument)> onClearAutomation)
+            : engine(e),
+              selectInstrumentCb(std::move(onSelectInst)),
+              clearAutomationCb(std::move(onClearAutomation)) {}
 
-        static constexpr int rowH = 30;
-        static constexpr int labelW = 44;
-        static constexpr int cellW = 48;
+        static constexpr int rowH = 24;  // 80% of original 30px
+        static constexpr int labelW = 58;
+        static constexpr int cellW = 49;
 
         int getDesiredHeight() const { return rowH * numGridRows; }
 
@@ -704,7 +787,15 @@ namespace rb338
                 g.fillRect(0, y, labelW, rowH);
                 g.setColour(Clr::textDark);
                 g.setFont(juce::Font(10.0f, juce::Font::bold));
-                g.drawText(gridRows[row].label, 0, y, labelW, rowH, juce::Justification::centred, false);
+                g.drawText(gridRows[row].label, 2, y, 24, rowH, juce::Justification::centred, false);
+
+                const bool hasAutomation = engine.getSequencer().hasAutomation(inst);
+                auto nilBounds = getNilBoundsForRow(row).toFloat();
+                g.setColour(hasAutomation ? Clr::orange : juce::Colour(0xff777777));
+                g.fillRoundedRectangle(nilBounds, 2.0f);
+                g.setColour(hasAutomation ? Clr::textWhite : juce::Colour(0xffbbbbbb));
+                g.setFont(juce::Font(8.0f, juce::Font::bold));
+                g.drawText("NIL", nilBounds, juce::Justification::centred, false);
 
                 // Cells
                 for (int col = 0; col < 16; ++col)
@@ -754,11 +845,19 @@ namespace rb338
 
             if (row < 0 || row >= numGridRows) return;
 
-            // Click on label = select instrument
+            // Click on label.
             if (e.x < labelW)
             {
+                auto inst = gridRows[row].instrument;
+                if (getNilBoundsForRow(row).contains(e.getPosition()))
+                {
+                    if (clearAutomationCb && engine.getSequencer().hasAutomation(inst))
+                        clearAutomationCb(inst);
+                    return;
+                }
+
                 if (selectInstrumentCb)
-                    selectInstrumentCb(gridRows[row].instrument);
+                    selectInstrumentCb(inst);
                 return;
             }
 
@@ -766,20 +865,14 @@ namespace rb338
             {
                 dragInstrument = gridRows[row].instrument;
                 dragLastCol = col;
-                
-                // Determine paint state: if step is Off, we paint On; if On or Accent, we paint Off
+
+                // Off -> On -> Accent -> Off
                 auto currentState = engine.getSequencer().getStep(dragInstrument, col);
-                dragPaintState = (currentState == StepState::Off) ? StepState::On : StepState::Off;
-                
-                // Apply to first cell
-                if (dragPaintState == StepState::Off)
-                {
-                    engine.getSequencer().setStep(dragInstrument, col, StepState::Off);
-                }
-                else
-                {
-                    engine.getSequencer().setStep(dragInstrument, col, StepState::On);
-                }
+                if (currentState == StepState::Off)      dragPaintState = StepState::On;
+                else if (currentState == StepState::On)  dragPaintState = StepState::Accent;
+                else                                      dragPaintState = StepState::Off;
+
+                engine.getSequencer().setStep(dragInstrument, col, dragPaintState);
                 repaint();
             }
         }
@@ -815,12 +908,18 @@ namespace rb338
     private:
         Engine& engine;
         std::function<void(Instrument)> selectInstrumentCb;
+        std::function<void(Instrument)> clearAutomationCb;
         int currentStep = 0;
         
         // Drag painting state
         Instrument dragInstrument = Instrument::Count;
         int dragLastCol = -1;
         StepState dragPaintState = StepState::Off;
+
+        juce::Rectangle<int> getNilBoundsForRow(int row) const
+        {
+            return { 28, row * rowH + 3, labelW - 32, rowH - 6 };
+        }
     };
 
     // =========================================================================
@@ -885,13 +984,16 @@ namespace rb338
             // LED indicator (top)
             auto ledBounds = juce::Rectangle<float>(b.getCentreX() - 6.0f, b.getY() + 4.0f, 12.0f, 5.0f);
             bool ledActive = (cachedState != StepState::Off) || (isCurrentStep && engine.isRunning());
+            const bool isAccent = (cachedState == StepState::Accent);
+            const auto accentLed = juce::Colour(0xffff3300);
+            const auto onLed = juce::Colour(0xffff8800);
 
             if (ledActive)
             {
                 // Glow
-                g.setColour(Clr::ledOn.withAlpha(0.4f));
+                g.setColour((isAccent ? accentLed : onLed).withAlpha(0.45f));
                 g.fillRoundedRectangle(ledBounds.expanded(2), 3.0f);
-                g.setColour(Clr::ledOn);
+                g.setColour(isAccent ? accentLed : onLed);
             }
             else
             {
@@ -965,9 +1067,9 @@ namespace rb338
         void resized() override
         {
             auto area = getLocalBounds();
-            int btnSize = 48;
-            int groupGap = 10;
-            int btnGap = 3;
+            int btnSize = 40;
+            int groupGap = 6;
+            int btnGap = 2;
 
             for (int i = 0; i < 16; ++i)
             {
@@ -991,9 +1093,11 @@ namespace rb338
             dragStartX = e.x;
             dragLastCol = col;
 
-            // Determine paint state: opposite of current cell
+            // Off -> On -> Accent -> Off
             auto currentState = engine.getSequencer().getStep(currentInstrument, col);
-            dragPaintState = (currentState == StepState::Off) ? StepState::On : StepState::Off;
+            if (currentState == StepState::Off)      dragPaintState = StepState::On;
+            else if (currentState == StepState::On)  dragPaintState = StepState::Accent;
+            else                                      dragPaintState = StepState::Off;
 
             // Apply to first cell
             engine.getSequencer().setStep(currentInstrument, col, dragPaintState);
@@ -1039,9 +1143,9 @@ namespace rb338
         int getButtonIndexAt(int x) const
         {
             // Account for button size, gaps, and group gaps
-            int btnSize = 48;
-            int btnGap = 3;
-            int groupGap = 10;
+            int btnSize = 40;
+            int btnGap = 2;
+            int groupGap = 6;
             int pos = 0;
 
             for (int i = 0; i < 16; ++i)
@@ -1095,6 +1199,218 @@ namespace rb338
     };
 
     // =========================================================================
+    // Pattern Manager Overlay
+    // =========================================================================
+    class PatternManagerOverlay : public juce::Component, private juce::Button::Listener
+    {
+    public:
+        std::function<void(int)> onSelectBank;
+        std::function<void(int, int)> onSelectPattern;
+        std::function<void(int, int, const juce::String&)> onRenamePattern;
+        std::function<void(int, int)> onCopyPattern;
+        std::function<void(int, int)> onPastePattern;
+        std::function<void(int, int)> onRandomizePattern;
+        std::function<void(int)> onSaveBank;
+        std::function<void()> onClose;
+
+        PatternManagerOverlay()
+        {
+            addAndMakeVisible(titleLabel);
+            titleLabel.setText("PATTERN MANAGER", juce::dontSendNotification);
+            titleLabel.setJustificationType(juce::Justification::centredLeft);
+
+            setupButton(closeButton, "CLOSE");
+            setupButton(bankAButton, "BANK A");
+            setupButton(bankBButton, "BANK B");
+            setupButton(copyButton, "COPY");
+            setupButton(pasteButton, "PASTE");
+            setupButton(randomButton, "RANDOM");
+            setupButton(saveButton, "SAVE BANK");
+            setupButton(renameButton, "RENAME");
+
+            addAndMakeVisible(nameEditor);
+            nameEditor.setTextToShowWhenEmpty("Pattern name", Clr::textLight);
+            nameEditor.setInputRestrictions(20);
+
+            for (int i = 0; i < numPatternsPerBank; ++i)
+            {
+                auto* btn = new juce::TextButton();
+                setupButton(*btn, juce::String(i + 1).paddedLeft('0', 2));
+                patternButtons.add(btn);
+            }
+        }
+
+        void setPatternNames(int bank, const std::array<juce::String, numPatternsPerBank>& names)
+        {
+            patternNames[juce::jlimit(0, numBanks - 1, bank)] = names;
+            refreshPatternButtons();
+        }
+
+        void setSelection(int bank, int pattern, bool hasPasteData)
+        {
+            selectedBank = juce::jlimit(0, numBanks - 1, bank);
+            selectedPattern = juce::jlimit(0, numPatternsPerBank - 1, pattern);
+            canPaste = hasPasteData;
+            refreshPatternButtons();
+        }
+
+        void paint(juce::Graphics& g) override
+        {
+            g.fillAll(juce::Colours::black.withAlpha(0.76f));
+
+            auto panel = getLocalBounds().reduced(80, 60).toFloat();
+            g.setColour(Clr::lcdBg);
+            g.fillRoundedRectangle(panel, 8.0f);
+            g.setColour(Clr::lcdBorder);
+            g.drawRoundedRectangle(panel, 8.0f, 2.0f);
+
+            auto gridArea = panel.reduced(14, 56);
+            g.setColour(Clr::gridLine.withAlpha(0.55f));
+            for (int i = 1; i < 8; ++i)
+            {
+                const float x = gridArea.getX() + (gridArea.getWidth() / 8.0f) * i;
+                g.drawVerticalLine((int)x, gridArea.getY(), gridArea.getBottom());
+            }
+            g.drawHorizontalLine((int)(gridArea.getY() + gridArea.getHeight() * 0.5f), gridArea.getX(), gridArea.getRight());
+        }
+
+        void resized() override
+        {
+            auto panel = getLocalBounds().reduced(80, 60);
+            auto header = panel.removeFromTop(34);
+            titleLabel.setBounds(header.removeFromLeft(220));
+            closeButton.setBounds(header.removeFromRight(90).reduced(2));
+            bankAButton.setBounds(header.removeFromRight(86).reduced(2));
+            bankBButton.setBounds(header.removeFromRight(86).reduced(2));
+
+            auto controls = panel.removeFromBottom(84);
+            auto nameRow = controls.removeFromTop(34);
+            nameEditor.setBounds(nameRow.removeFromLeft(230).reduced(2));
+            renameButton.setBounds(nameRow.removeFromLeft(96).reduced(2));
+            saveButton.setBounds(nameRow.removeFromLeft(120).reduced(2));
+
+            auto actionRow = controls.removeFromTop(34);
+            copyButton.setBounds(actionRow.removeFromLeft(96).reduced(2));
+            pasteButton.setBounds(actionRow.removeFromLeft(96).reduced(2));
+            randomButton.setBounds(actionRow.removeFromLeft(110).reduced(2));
+
+            auto grid = panel.reduced(8);
+            const int cols = 8;
+            const int rows = 2;
+            const int w = grid.getWidth() / cols;
+            const int h = grid.getHeight() / rows;
+            for (int i = 0; i < patternButtons.size(); ++i)
+            {
+                int row = i / cols;
+                int col = i % cols;
+                patternButtons[i]->setBounds(grid.getX() + col * w + 3, grid.getY() + row * h + 3, w - 6, h - 6);
+            }
+        }
+
+    private:
+        juce::Label titleLabel;
+        juce::TextButton closeButton, bankAButton, bankBButton;
+        juce::TextButton copyButton, pasteButton, randomButton, saveButton, renameButton;
+        juce::TextEditor nameEditor;
+        juce::OwnedArray<juce::TextButton> patternButtons;
+        std::array<std::array<juce::String, numPatternsPerBank>, numBanks> patternNames {};
+        int selectedBank = 0;
+        int selectedPattern = 0;
+        bool canPaste = false;
+
+        void setupButton(juce::TextButton& button, const juce::String& text)
+        {
+            addAndMakeVisible(button);
+            button.setButtonText(text);
+            button.addListener(this);
+            button.setColour(juce::TextButton::buttonColourId, juce::Colour(0xff2c2c2c));
+            button.setColour(juce::TextButton::textColourOffId, Clr::lcdBright);
+            button.setColour(juce::TextButton::textColourOnId, juce::Colours::white);
+        }
+
+        void refreshPatternButtons()
+        {
+            for (int i = 0; i < patternButtons.size(); ++i)
+            {
+                const juce::String id = juce::String(i + 1).paddedLeft('0', 2);
+                juce::String nm = patternNames[(size_t)selectedBank][(size_t)i];
+                if (nm.isEmpty())
+                    nm = id;
+                patternButtons[i]->setButtonText(id + "  " + nm.substring(0, 8));
+                const bool selected = (i == selectedPattern);
+                patternButtons[i]->setColour(juce::TextButton::buttonColourId, selected ? Clr::orange : juce::Colour(0xff222222));
+                patternButtons[i]->setColour(juce::TextButton::textColourOffId, selected ? Clr::textWhite : Clr::lcdBright);
+            }
+
+            bankAButton.setColour(juce::TextButton::buttonColourId, selectedBank == 0 ? Clr::orange : juce::Colour(0xff2c2c2c));
+            bankBButton.setColour(juce::TextButton::buttonColourId, selectedBank == 1 ? Clr::orange : juce::Colour(0xff2c2c2c));
+            pasteButton.setEnabled(canPaste);
+            nameEditor.setText(patternNames[(size_t)selectedBank][(size_t)selectedPattern], juce::dontSendNotification);
+            repaint();
+        }
+
+        void buttonClicked(juce::Button* b) override
+        {
+            if (b == &closeButton)
+            {
+                if (onClose) onClose();
+                return;
+            }
+
+            if (b == &bankAButton || b == &bankBButton)
+            {
+                selectedBank = (b == &bankAButton) ? 0 : 1;
+                if (onSelectBank) onSelectBank(selectedBank);
+                refreshPatternButtons();
+                return;
+            }
+
+            if (b == &copyButton)
+            {
+                if (onCopyPattern) onCopyPattern(selectedBank, selectedPattern);
+                canPaste = true;
+                refreshPatternButtons();
+                return;
+            }
+
+            if (b == &pasteButton)
+            {
+                if (onPastePattern) onPastePattern(selectedBank, selectedPattern);
+                return;
+            }
+
+            if (b == &randomButton)
+            {
+                if (onRandomizePattern) onRandomizePattern(selectedBank, selectedPattern);
+                return;
+            }
+
+            if (b == &saveButton)
+            {
+                if (onSaveBank) onSaveBank(selectedBank);
+                return;
+            }
+
+            if (b == &renameButton)
+            {
+                if (onRenamePattern) onRenamePattern(selectedBank, selectedPattern, nameEditor.getText().trim());
+                return;
+            }
+
+            for (int i = 0; i < patternButtons.size(); ++i)
+            {
+                if (b == patternButtons[i])
+                {
+                    selectedPattern = i;
+                    if (onSelectPattern) onSelectPattern(selectedBank, selectedPattern);
+                    refreshPatternButtons();
+                    return;
+                }
+            }
+        }
+    };
+
+    // =========================================================================
     // Main Component
     // =========================================================================
     class MainComponent : public juce::AudioAppComponent, private juce::Timer
@@ -1104,32 +1420,45 @@ namespace rb338
         {
             setLookAndFeel(&lf);
             setWantsKeyboardFocus(true);
+            initialisePatternBanks();
 
             // LCD
             lcd = std::make_unique<LCDDisplay>(engine);
             addAndMakeVisible(*lcd);
+            lcd->onRequestPatternManager = [this]() { showPatternManager(true); };
+            lcd->onBpmChanged = [this](float bpm)
+            {
+                juce::ignoreUnused(bpm);
+                updateCurrentPatternFromEngine();
+            };
 
             // Transport buttons
             setupButton(startBtn, "START", Clr::orange, Clr::textWhite);
             setupButton(stopBtn,  "STOP",  juce::Colours::white, Clr::textDark);
+            setupButton(recBtn,   "REC",   juce::Colour(0xffb0b0b0), Clr::textDark);
             setupButton(panelBtn, "PANEL", juce::Colour(0xffbbbbbb), juce::Colour(0xff666666));
+            setupButton(listBtn,  "LIST",  juce::Colour(0xffd18652), Clr::textWhite);
             setupButton(helpBtn,  "HELP",  juce::Colours::white, Clr::textDark);
 
             startBtn.onClick = [this] { engine.setRunning(true); };
             stopBtn.onClick  = [this] { engine.setRunning(false); };
+            recBtn.onClick   = [this] { toggleRecording(); };
             panelBtn.onClick = [this] { togglePanel(); };
+            listBtn.onClick  = [this] { showPatternManager(true); };
 
             // Instrument sections
             for (int i = 0; i < numSections; ++i)
             {
-                auto* sec = new InstrumentSection(engine, sectionDefs[i]);
+                auto* sec = new InstrumentSection(engine, sectionDefs[i],
+                    [this](const KnobDef& kd, float value) { onInstrumentKnobMoved(kd, value); });
                 addAndMakeVisible(sec);
                 sections.add(sec);
             }
 
             // Sequencer grid (hidden initially)
             auto selectCb = [this](Instrument inst) { selectInstrument(inst); };
-            grid = std::make_unique<SequencerGrid>(engine, selectCb);
+            auto clearAutomationCb = [this](Instrument inst) { requestClearTrackAutomation(inst); };
+            grid = std::make_unique<SequencerGrid>(engine, selectCb, clearAutomationCb);
             addChildComponent(*grid); // hidden
 
             // Instrument select labels
@@ -1146,13 +1475,62 @@ namespace rb338
             stepButtonRow->setInstrument(Instrument::Kick);
             addAndMakeVisible(*stepButtonRow);
 
-            setSize(1024, collapsedHeight);
+            // Pattern manager overlay (right-click on LCD to open)
+            patternManager = std::make_unique<PatternManagerOverlay>();
+            patternManager->onClose = [this]() { showPatternManager(false); };
+            patternManager->onSelectBank = [this](int bank)
+            {
+                saveCurrentPatternSlot();
+                currentBank = bank;
+                selectPattern(currentBank, currentPattern, true);
+            };
+            patternManager->onSelectPattern = [this](int bank, int pattern)
+            {
+                saveCurrentPatternSlot();
+                selectPattern(bank, pattern, true);
+            };
+            patternManager->onRenamePattern = [this](int bank, int pattern, const juce::String& name)
+            {
+                patterns[(size_t)bank][(size_t)pattern].name = name.isNotEmpty() ? name : defaultPatternName(bank, pattern);
+                updatePatternManagerNames();
+                updateLcdPatternText();
+            };
+            patternManager->onCopyPattern = [this](int bank, int pattern)
+            {
+                clipboardPattern = patterns[(size_t)bank][(size_t)pattern];
+            };
+            patternManager->onPastePattern = [this](int bank, int pattern)
+            {
+                if (!clipboardPattern.has_value())
+                    return;
+                patterns[(size_t)bank][(size_t)pattern] = *clipboardPattern;
+                selectPattern(bank, pattern, true);
+                updatePatternManagerNames();
+            };
+            patternManager->onRandomizePattern = [this](int bank, int pattern)
+            {
+                patterns[(size_t)bank][(size_t)pattern] = makeRandomPattern((int)juce::Time::currentTimeMillis());
+                patterns[(size_t)bank][(size_t)pattern].name = "RAND " + juce::String(pattern + 1).paddedLeft('0', 2);
+                selectPattern(bank, pattern, true);
+                updatePatternManagerNames();
+            };
+            patternManager->onSaveBank = [this](int)
+            {
+                savePatternBanksToDisk();
+            };
+            addChildComponent(*patternManager);
+
+            selectPattern(currentBank, currentPattern, true);
+
+            setSize(windowW, collapsedHeight);
             startTimerHz(30);
             setAudioChannels(0, 2);
         }
 
         ~MainComponent() override
         {
+            saveCurrentPatternSlot();
+            savePatternBanksToDisk();
             setLookAndFeel(nullptr);
             shutdownAudio();
         }
@@ -1160,7 +1538,8 @@ namespace rb338
         void prepareToPlay(int samplesPerBlockExpected, double sampleRate) override
         {
             engine.prepare(sampleRate, samplesPerBlockExpected, 2);
-            engine.setBpm(lcd->currentBpm);
+            engine.getSequencer().setLength(16);
+            applyPattern(patterns[(size_t)currentBank][(size_t)currentPattern]);
         }
 
         void getNextAudioBlock(const juce::AudioSourceChannelInfo& bufferToFill) override
@@ -1169,6 +1548,8 @@ namespace rb338
         }
 
         void releaseResources() override {}
+
+        int getExpandedHeightForWindow() const { return expandedHeight(); }
 
         void paint(juce::Graphics& g) override
         {
@@ -1204,17 +1585,17 @@ namespace rb338
             g.drawLine(0, (float)footerY, (float)getWidth(), (float)footerY, 1.0f);
 
             // Logo text
-            g.setFont(juce::Font(30.0f, juce::Font::bold));
+            g.setFont(juce::Font(24.0f, juce::Font::bold));
             g.setColour(Clr::textDark);
-            g.drawText("LoS.", 16, 10, 70, 36, juce::Justification::centredLeft, false);
+            g.drawText("LoS.", 14, 8, 58, 30, juce::Justification::centredLeft, false);
             g.setColour(Clr::orange);
-            g.drawText("9x9", 72, 10, 60, 36, juce::Justification::centredLeft, false);
+            g.drawText("9x9", 66, 8, 48, 30, juce::Justification::centredLeft, false);
             g.setColour(Clr::textMid);
-            g.setFont(juce::Font(14.0f, juce::Font::bold));
-            g.drawText("RHYTHM COMPOSER", 140, 16, 200, 22, juce::Justification::centredLeft, false);
+            g.setFont(juce::Font(10.0f, juce::Font::bold));
+            g.drawText("RHYTHM COMPOSER", 116, 13, 100, 18, juce::Justification::centredLeft, false);
             g.setColour(Clr::textLight);
             g.setFont(juce::Font(8.0f, juce::Font::bold));
-            g.drawText("COMPUTER CONTROLLED", 16, 42, 200, 12, juce::Justification::centredLeft, false);
+            g.drawText("COMPUTER CONTROLLED", 14, 34, 170, 12, juce::Justification::centredLeft, false);
 
             // Status bar
             auto statusY = footerY - 36;
@@ -1261,17 +1642,16 @@ namespace rb338
             g.setFont(juce::Font(8.0f, juce::Font::bold));
             g.drawText("BANK", 16, footerY + 4, 30, footerH - 8, juce::Justification::centredLeft, false);
 
-            // Bank A (active)
-            g.setColour(Clr::orange);
+            // Bank A/B selectors
+            g.setColour(currentBank == 0 ? Clr::orange : juce::Colours::white);
             g.fillRoundedRectangle(50.0f, (float)footerY + 10.0f, 20.0f, 20.0f, 2.0f);
-            g.setColour(Clr::textWhite);
+            g.setColour(currentBank == 0 ? Clr::textWhite : Clr::textMid);
             g.setFont(juce::Font(8.0f, juce::Font::bold));
             g.drawText("A", 50, footerY + 10, 20, 20, juce::Justification::centred, false);
 
-            // Bank B (inactive)
-            g.setColour(juce::Colours::white);
+            g.setColour(currentBank == 1 ? Clr::orange : juce::Colours::white);
             g.fillRoundedRectangle(74.0f, (float)footerY + 10.0f, 20.0f, 20.0f, 2.0f);
-            g.setColour(Clr::textMid);
+            g.setColour(currentBank == 1 ? Clr::textWhite : Clr::textMid);
             g.drawText("B", 74, footerY + 10, 20, 20, juce::Justification::centred, false);
 
             // Mode
@@ -1280,10 +1660,11 @@ namespace rb338
             g.drawText("MODE", 110, footerY + 4, 30, footerH - 8, juce::Justification::centredLeft, false);
 
             g.setColour(juce::Colour(0xff333333));
-            g.fillRoundedRectangle(146.0f, (float)footerY + 10.0f, 80.0f, 20.0f, 2.0f);
+            g.fillRoundedRectangle(146.0f, (float)footerY + 10.0f, 130.0f, 20.0f, 2.0f);
             g.setColour(Clr::textWhite);
             g.setFont(juce::Font(7.0f, juce::Font::bold));
-            g.drawText("PATTERN WRITE", 146, footerY + 10, 80, 20, juce::Justification::centred, false);
+            const juce::String patternLabel = patterns[(size_t)currentBank][(size_t)currentPattern].name;
+            g.drawText("PATTERN " + patternLabel.substring(0, 12), 146, footerY + 10, 130, 20, juce::Justification::centred, false);
         }
 
         void resized() override
@@ -1292,30 +1673,34 @@ namespace rb338
 
             // --- HEADER ---
             auto header = area.removeFromTop(headerH);
+            auto topRow = header.removeFromTop(76);
+            topRow.removeFromLeft(220); // keep logo area clear for paint()
 
-            // LCD + buttons (top-right of header)
-            auto topRight = header.removeFromRight(440); // Increased for accent knob
-            topRight.removeFromTop(8);
-            auto lcdRow = topRight.removeFromTop(60);
-            lcd->setBounds(lcdRow.removeFromLeft(280).reduced(4)); // Wider for both knobs
+            // LCD + transport/pattern controls
+            auto topRight = topRow;
+            lcd->setBounds(topRight.removeFromLeft(270).reduced(4, 4));
 
-            auto btnCol = lcdRow;
-            btnCol.removeFromLeft(8);
-            auto btnRow1 = btnCol.removeFromTop(32);
-            startBtn.setBounds(btnRow1.removeFromLeft(64).reduced(2));
-            stopBtn.setBounds(btnRow1.removeFromLeft(64).reduced(2));
-            auto btnRow2 = btnCol.removeFromTop(28);
-            panelBtn.setBounds(btnRow2.removeFromLeft(60).reduced(2));
-            helpBtn.setBounds(btnRow2.removeFromLeft(60).reduced(2));
+            auto btnCol = topRight.reduced(4, 4);
+            auto btnRow1 = btnCol.removeFromTop(22);
+            startBtn.setBounds(btnRow1.removeFromLeft(68).reduced(1));
+            stopBtn.setBounds(btnRow1.removeFromLeft(68).reduced(1));
+            auto btnRow2 = btnCol.removeFromTop(20);
+            recBtn.setBounds(btnRow2.removeFromLeft(68).reduced(1));
+            listBtn.setBounds(btnRow2.removeFromLeft(68).reduced(1));
+            auto btnRow3 = btnCol.removeFromTop(20);
+            panelBtn.setBounds(btnRow3.removeFromLeft(68).reduced(1));
+            helpBtn.setBounds(btnRow3.removeFromLeft(68).reduced(1));
 
             // Instrument sections (bottom of header)
-            auto secRow = header.removeFromBottom(140);  // Increased for label space + padding from border
-            secRow.removeFromBottom(10); // Extra padding above the header border line
-            secRow.removeFromLeft(8);
-            secRow.removeFromRight(8);
-            int secW = secRow.getWidth() / numSections;
+            auto secRow = header.reduced(8, 2);
+            const int gap = 2;
+            const int moduleWidth = (secRow.getWidth() - gap * (numSections - 1)) / numSections;
             for (int i = 0; i < numSections; ++i)
-                sections[i]->setBounds(secRow.removeFromLeft(secW));
+            {
+                sections[i]->setBounds(secRow.removeFromLeft(moduleWidth));
+                if (i < numSections - 1)
+                    secRow.removeFromLeft(gap);
+            }
 
             // --- GRID (expanded) ---
             if (panelExpanded)
@@ -1329,13 +1714,13 @@ namespace rb338
             (void)footer; // painted only
 
             // --- MAIN AREA ---
-            area.removeFromBottom(40); // status bar space
+            area.removeFromBottom(38); // status bar space
 
-            // Instrument select row
-            auto instSelRow = area.removeFromTop(22);
-            instSelRow.removeFromLeft(16);
-            int labelW = 36;
-            int labelGap = 3;
+            // Instrument select row - align with sections
+            auto instSelRow = area.removeFromTop(20);
+            instSelRow.removeFromLeft(12);
+            int labelW = 30;
+            int labelGap = 2;
             for (int i = 0; i < instLabels.size(); ++i)
             {
                 instLabels[i]->setBounds(instSelRow.removeFromLeft(labelW).reduced(0, 1));
@@ -1343,12 +1728,16 @@ namespace rb338
                     instSelRow.removeFromLeft(labelGap);
             }
 
-            area.removeFromTop(18); // Increased from 8 for better readability
+            area.removeFromTop(10);
 
-            // Step button row
-            auto stepRow = area.removeFromTop(52);
-            stepRow.removeFromLeft(16);
-            stepButtonRow->setBounds(stepRow);
+            // Step button row - align with sections
+            auto stepRow = area.removeFromTop(44);
+            const int stepButtonsW = 16 * 40 + 12 * 2 + 3 * 6;
+            const int stepX = (getWidth() - stepButtonsW) / 2;
+            stepButtonRow->setBounds(stepX, stepRow.getY(), stepButtonsW, 40);
+
+            if (patternManager)
+                patternManager->setBounds(getLocalBounds());
         }
 
         bool keyPressed(const juce::KeyPress& key) override
@@ -1358,7 +1747,70 @@ namespace rb338
                 engine.setRunning(!engine.isRunning());
                 return true;
             }
+
+            auto triggerFromKey = [this](Instrument inst)
+            {
+                engine.triggerInstrument(inst, 1.0f);
+                selectInstrument(inst);
+
+                if (recordingEnabled)
+                {
+                    const int step = getRecordStepIndex();
+                    engine.getSequencer().setStep(inst, step, StepState::On);
+                    updateCurrentPatternFromEngine();
+                }
+            };
+
+            const juce_wchar kc = key.getTextCharacter();
+            switch (kc)
+            {
+                case 'a':
+                case 'A': triggerFromKey(Instrument::Kick); return true;
+                case 's':
+                case 'S': triggerFromKey(Instrument::Snare); return true;
+                case 'd':
+                case 'D': triggerFromKey(Instrument::TomLow); return true;
+                case 'f':
+                case 'F': triggerFromKey(Instrument::TomMid); return true;
+                case 'g':
+                case 'G': triggerFromKey(Instrument::TomHigh); return true;
+                case 'h':
+                case 'H': triggerFromKey(Instrument::Rim); return true;
+                case 'j':
+                case 'J': triggerFromKey(Instrument::Clap); return true;
+                case 'k':
+                case 'K': triggerFromKey(Instrument::ClosedHat); return true;
+                case 'l':
+                case 'L': triggerFromKey(Instrument::OpenHat); return true;
+                case ';': triggerFromKey(Instrument::Crash); return true;
+                case '\'': triggerFromKey(Instrument::Ride); return true;
+                default: break;
+            }
             return false;
+        }
+
+        void mouseDown(const juce::MouseEvent& e) override
+        {
+            if (patternManager && patternManager->isVisible())
+                return;
+
+            const int footerY = getHeight() - footerH;
+            if (e.y < footerY)
+                return;
+
+            const juce::Rectangle<int> bankA(50, footerY + 10, 20, 20);
+            const juce::Rectangle<int> bankB(74, footerY + 10, 20, 20);
+            if (bankA.contains(e.getPosition()))
+            {
+                saveCurrentPatternSlot();
+                selectPattern(0, currentPattern, true);
+                return;
+            }
+            if (bankB.contains(e.getPosition()))
+            {
+                saveCurrentPatternSlot();
+                selectPattern(1, currentPattern, true);
+            }
         }
 
     private:
@@ -1366,20 +1818,382 @@ namespace rb338
         LookAndFeel909 lf;
         Instrument selectedInstrument = Instrument::Kick;
         bool panelExpanded = false;
+        bool recordingEnabled = false;
 
-        static constexpr int headerH = 220;  // Increased from 190 for knob label visibility
+        static constexpr int windowW = 850;
+        static constexpr int headerH = 202;
         static constexpr int footerH = 40;
-        static constexpr int collapsedHeight = 430; // Adjusted for new header height
+        static constexpr int collapsedHeight = 390;
 
         int expandedHeight() const { return collapsedHeight + grid->getDesiredHeight(); }
 
         // Components
         std::unique_ptr<LCDDisplay> lcd;
-        juce::TextButton startBtn, stopBtn, panelBtn, helpBtn;
+        juce::TextButton startBtn, stopBtn, recBtn, panelBtn, listBtn, helpBtn;
         juce::OwnedArray<InstrumentSection> sections;
         std::unique_ptr<SequencerGrid> grid;
         std::unique_ptr<StepButtonRow> stepButtonRow;
         juce::OwnedArray<InstrumentLabel> instLabels;
+        std::unique_ptr<PatternManagerOverlay> patternManager;
+        std::array<std::array<PatternData, numPatternsPerBank>, numBanks> patterns {};
+        std::optional<PatternData> clipboardPattern;
+        int currentBank = 0;
+        int currentPattern = 0;
+        bool isApplyingPattern = false;
+
+        juce::String defaultPatternName(int bank, int pattern) const
+        {
+            return juce::String(pattern + 1).paddedLeft('0', 2)
+                + "-"
+                + juce::String::charToString((juce_wchar)('A' + bank));
+        }
+
+        juce::File patternStorageFile() const
+        {
+            auto dir = juce::File::getSpecialLocation(juce::File::userApplicationDataDirectory)
+                .getChildFile("LoS9x9");
+            dir.createDirectory();
+            return dir.getChildFile("pattern_banks.json");
+        }
+
+        PatternData makeRandomPattern(int seed) const
+        {
+            juce::Random rng(seed);
+            PatternData p;
+            p.bpm = 118.0f + rng.nextFloat() * 18.0f;
+            p.shuffle = rng.nextFloat() * 0.38f;
+            p.accent = 0.4f + rng.nextFloat() * 0.35f;
+
+            auto set = [&p](Instrument inst, int step, StepState st)
+            {
+                if (step >= 0 && step < 16)
+                    p.steps[(int)inst][step] = st;
+            };
+
+            // House/techno-informed foundations.
+            for (int s : { 0, 4, 8, 12 }) set(Instrument::Kick, s, StepState::On);
+            if (rng.nextBool()) set(Instrument::Kick, 10, StepState::On);
+            if (rng.nextFloat() > 0.6f) set(Instrument::Kick, 15, StepState::Accent);
+
+            for (int s : { 4, 12 }) set(Instrument::Snare, s, StepState::On);
+            if (rng.nextBool()) set(Instrument::Clap, 4, StepState::Accent);
+            if (rng.nextBool()) set(Instrument::Clap, 12, StepState::Accent);
+
+            const bool denseHats = rng.nextBool();
+            for (int s = 0; s < 16; ++s)
+            {
+                if (denseHats ? (s % 2 == 0) : (s % 4 == 2))
+                    set(Instrument::ClosedHat, s, (rng.nextFloat() > 0.8f) ? StepState::Accent : StepState::On);
+            }
+            for (int s : { 3, 7, 11, 15 })
+                if (rng.nextFloat() > 0.35f) set(Instrument::OpenHat, s, StepState::On);
+
+            if (rng.nextFloat() > 0.65f) set(Instrument::TomLow, 14, StepState::On);
+            if (rng.nextFloat() > 0.70f) set(Instrument::TomMid, 15, StepState::On);
+            if (rng.nextFloat() > 0.76f) set(Instrument::TomHigh, 13, StepState::On);
+            if (rng.nextFloat() > 0.72f) set(Instrument::Rim, 6, StepState::On);
+            if (rng.nextFloat() > 0.68f) set(Instrument::Crash, 0, StepState::Accent);
+            if (rng.nextFloat() > 0.82f) set(Instrument::Ride, 8, StepState::On);
+
+            p.name = "RND " + juce::String(seed % 100).paddedLeft('0', 2);
+            return p;
+        }
+
+        void applyPattern(const PatternData& pattern)
+        {
+            isApplyingPattern = true;
+
+            auto& seq = engine.getSequencer();
+            seq.clear();
+            seq.clearAllAutomation();
+            seq.setLength(16);
+            for (int inst = 0; inst < (int)Instrument::Count; ++inst)
+            {
+                for (int step = 0; step < 16; ++step)
+                {
+                    seq.setStep((Instrument)inst, step, pattern.steps[inst][step]);
+                    for (int param = 0; param < (int)AutomationParam::Count; ++param)
+                    {
+                        if (pattern.automationActive[inst][param][step])
+                        {
+                            seq.setAutomationPoint((Instrument)inst, (AutomationParam)param, step,
+                                                   pattern.automationValue[inst][param][step]);
+                        }
+                    }
+                }
+            }
+
+            seq.setShuffle(pattern.shuffle);
+            engine.setAccentLevel(pattern.accent);
+            lcd->setShuffleAccent(pattern.shuffle, pattern.accent);
+            lcd->setBpmValue(pattern.bpm, true);
+            lcd->setPatternDisplay(currentBank, currentPattern, pattern.name);
+
+            isApplyingPattern = false;
+        }
+
+        void saveCurrentPatternSlot()
+        {
+            if (isApplyingPattern)
+                return;
+
+            auto& slot = patterns[(size_t)currentBank][(size_t)currentPattern];
+            for (int inst = 0; inst < (int)Instrument::Count; ++inst)
+            {
+                for (int step = 0; step < 16; ++step)
+                {
+                    slot.steps[inst][step] = engine.getSequencer().getStep((Instrument)inst, step);
+
+                    for (int param = 0; param < (int)AutomationParam::Count; ++param)
+                    {
+                        float value = 0.0f;
+                        const bool active = engine.getSequencer().getAutomationPoint(
+                            (Instrument)inst, (AutomationParam)param, step, value);
+                        slot.automationActive[inst][param][step] = active;
+                        slot.automationValue[inst][param][step] = value;
+                    }
+                }
+            }
+
+            slot.bpm = engine.getSequencer().getBpm();
+            slot.shuffle = engine.getSequencer().getShuffle();
+            slot.accent = engine.getAccentLevel();
+            if (slot.name.isEmpty())
+                slot.name = defaultPatternName(currentBank, currentPattern);
+        }
+
+        void updateCurrentPatternFromEngine()
+        {
+            saveCurrentPatternSlot();
+            updateLcdPatternText();
+        }
+
+        void updateLcdPatternText()
+        {
+            lcd->setPatternDisplay(currentBank, currentPattern, patterns[(size_t)currentBank][(size_t)currentPattern].name);
+        }
+
+        void updatePatternManagerNames()
+        {
+            if (!patternManager)
+                return;
+
+            for (int b = 0; b < numBanks; ++b)
+            {
+                std::array<juce::String, numPatternsPerBank> names;
+                for (int p = 0; p < numPatternsPerBank; ++p)
+                    names[(size_t)p] = patterns[(size_t)b][(size_t)p].name;
+                patternManager->setPatternNames(b, names);
+            }
+        }
+
+        void selectPattern(int bank, int pattern, bool refreshUI)
+        {
+            currentBank = juce::jlimit(0, numBanks - 1, bank);
+            currentPattern = juce::jlimit(0, numPatternsPerBank - 1, pattern);
+            applyPattern(patterns[(size_t)currentBank][(size_t)currentPattern]);
+
+            if (refreshUI)
+            {
+                updateLcdPatternText();
+                updatePatternManagerNames();
+                if (patternManager)
+                    patternManager->setSelection(currentBank, currentPattern, clipboardPattern.has_value());
+                repaint();
+            }
+        }
+
+        void showPatternManager(bool show)
+        {
+            if (!patternManager)
+                return;
+
+            if (show)
+            {
+                saveCurrentPatternSlot();
+                updatePatternManagerNames();
+                patternManager->setSelection(currentBank, currentPattern, clipboardPattern.has_value());
+                patternManager->setVisible(true);
+                patternManager->toFront(true);
+            }
+            else
+            {
+                patternManager->setVisible(false);
+            }
+        }
+
+        bool loadPatternBanksFromDisk()
+        {
+            const auto file = patternStorageFile();
+            if (!file.existsAsFile())
+                return false;
+
+            const auto json = juce::JSON::parse(file);
+            if (!json.isObject())
+                return false;
+
+            auto* root = json.getDynamicObject();
+            auto banksVar = root->getProperty("banks");
+            if (!banksVar.isArray())
+                return false;
+
+            auto* banksArr = banksVar.getArray();
+            for (int b = 0; b < juce::jmin(numBanks, banksArr->size()); ++b)
+            {
+                auto bankVar = banksArr->getReference(b);
+                if (!bankVar.isArray())
+                    continue;
+                auto* pattArr = bankVar.getArray();
+                for (int p = 0; p < juce::jmin(numPatternsPerBank, pattArr->size()); ++p)
+                {
+                    auto pattVar = pattArr->getReference(p);
+                    if (!pattVar.isObject())
+                        continue;
+                    auto* obj = pattVar.getDynamicObject();
+                    auto& dst = patterns[(size_t)b][(size_t)p];
+                    dst.name = obj->getProperty("name").toString();
+                    dst.bpm = (float)obj->getProperty("bpm");
+                    dst.shuffle = (float)obj->getProperty("shuffle");
+                    dst.accent = (float)obj->getProperty("accent");
+
+                    auto stepsStr = obj->getProperty("steps").toString();
+                    int idx = 0;
+                    for (int inst = 0; inst < (int)Instrument::Count; ++inst)
+                    {
+                        for (int step = 0; step < 16; ++step)
+                        {
+                            StepState state = StepState::Off;
+                            if (idx < stepsStr.length())
+                            {
+                                auto c = stepsStr[(int)idx++];
+                                if (c == '1') state = StepState::On;
+                                else if (c == '2') state = StepState::Accent;
+                            }
+                            dst.steps[inst][step] = state;
+                        }
+                    }
+
+                    for (int inst = 0; inst < (int)Instrument::Count; ++inst)
+                        for (int param = 0; param < (int)AutomationParam::Count; ++param)
+                            for (int step = 0; step < 16; ++step)
+                            {
+                                dst.automationActive[inst][param][step] = false;
+                                dst.automationValue[inst][param][step] = 0.0f;
+                            }
+
+                    auto autoVar = obj->getProperty("automation");
+                    if (autoVar.isArray())
+                    {
+                        auto* autoArr = autoVar.getArray();
+                        for (int i = 0; i < autoArr->size(); ++i)
+                        {
+                            auto pointVar = autoArr->getReference(i);
+                            if (!pointVar.isObject())
+                                continue;
+
+                            auto* point = pointVar.getDynamicObject();
+                            const int inst = (int)point->getProperty("i");
+                            const int param = (int)point->getProperty("p");
+                            const int step = (int)point->getProperty("s");
+                            const float value = (float)point->getProperty("v");
+
+                            if (inst < 0 || inst >= (int)Instrument::Count
+                                || param < 0 || param >= (int)AutomationParam::Count
+                                || step < 0 || step >= 16)
+                                continue;
+
+                            dst.automationActive[inst][param][step] = true;
+                            dst.automationValue[inst][param][step] = juce::jlimit(0.0f, 1.0f, value);
+                        }
+                    }
+                }
+            }
+
+            return true;
+        }
+
+        void savePatternBanksToDisk()
+        {
+            juce::DynamicObject::Ptr root(new juce::DynamicObject());
+            juce::Array<juce::var> banksVar;
+
+            for (int b = 0; b < numBanks; ++b)
+            {
+                juce::Array<juce::var> pattVar;
+                for (int p = 0; p < numPatternsPerBank; ++p)
+                {
+                    const auto& src = patterns[(size_t)b][(size_t)p];
+                    juce::String steps;
+                    steps.preallocateBytes((int)Instrument::Count * 16);
+                    for (int inst = 0; inst < (int)Instrument::Count; ++inst)
+                        for (int step = 0; step < 16; ++step)
+                            steps += juce::String((int)src.steps[inst][step]);
+
+                    juce::DynamicObject::Ptr patt(new juce::DynamicObject());
+                    patt->setProperty("name", src.name);
+                    patt->setProperty("bpm", src.bpm);
+                    patt->setProperty("shuffle", src.shuffle);
+                    patt->setProperty("accent", src.accent);
+                    patt->setProperty("steps", steps);
+
+                    juce::Array<juce::var> automation;
+                    for (int inst = 0; inst < (int)Instrument::Count; ++inst)
+                    {
+                        for (int param = 0; param < (int)AutomationParam::Count; ++param)
+                        {
+                            for (int step = 0; step < 16; ++step)
+                            {
+                                if (!src.automationActive[inst][param][step])
+                                    continue;
+
+                                juce::DynamicObject::Ptr point(new juce::DynamicObject());
+                                point->setProperty("i", inst);
+                                point->setProperty("p", param);
+                                point->setProperty("s", step);
+                                point->setProperty("v", src.automationValue[inst][param][step]);
+                                automation.add(juce::var(point.get()));
+                            }
+                        }
+                    }
+                    patt->setProperty("automation", juce::var(automation));
+                    pattVar.add(juce::var(patt.get()));
+                }
+                banksVar.add(juce::var(pattVar));
+            }
+
+            root->setProperty("banks", juce::var(banksVar));
+            patternStorageFile().replaceWithText(juce::JSON::toString(juce::var(root.get())));
+        }
+
+        void initialisePatternBanks()
+        {
+            for (int b = 0; b < numBanks; ++b)
+            {
+                for (int p = 0; p < numPatternsPerBank; ++p)
+                {
+                    patterns[(size_t)b][(size_t)p].name = defaultPatternName(b, p);
+                    patterns[(size_t)b][(size_t)p].bpm = 120.0f;
+                    patterns[(size_t)b][(size_t)p].shuffle = 0.0f;
+                    patterns[(size_t)b][(size_t)p].accent = 0.5f;
+                }
+            }
+
+            // Demo set lives in bank B.
+            for (int p = 0; p < numPatternsPerBank; ++p)
+            {
+                patterns[1][(size_t)p] = makeRandomPattern(100 + p * 17);
+                patterns[1][(size_t)p].name = "DEMO " + juce::String(p + 1).paddedLeft('0', 2);
+            }
+
+            // Signature 4-on-the-floor default for A01.
+            auto& a01 = patterns[0][0];
+            for (int s : { 0, 4, 8, 12 }) a01.steps[(int)Instrument::Kick][s] = StepState::On;
+            for (int s : { 4, 12 }) a01.steps[(int)Instrument::Snare][s] = StepState::On;
+            for (int s = 0; s < 16; s += 2) a01.steps[(int)Instrument::ClosedHat][s] = StepState::On;
+            a01.name = "A01 BASIC";
+
+            loadPatternBanksFromDisk();
+        }
 
         void setupButton(juce::TextButton& btn, const juce::String& text,
                          juce::Colour bg, juce::Colour textCol)
@@ -1388,6 +2202,77 @@ namespace rb338
             btn.setColour(juce::TextButton::buttonColourId, bg);
             btn.setColour(juce::TextButton::textColourOffId, textCol);
             addAndMakeVisible(btn);
+        }
+
+        juce::String instrumentName(Instrument inst) const
+        {
+            switch (inst)
+            {
+                case Instrument::Kick:      return "Bass Drum";
+                case Instrument::Snare:     return "Snare Drum";
+                case Instrument::TomLow:    return "Low Tom";
+                case Instrument::TomMid:    return "Mid Tom";
+                case Instrument::TomHigh:   return "Hi Tom";
+                case Instrument::Rim:       return "Rim";
+                case Instrument::Clap:      return "Clap";
+                case Instrument::ClosedHat: return "Closed Hat";
+                case Instrument::OpenHat:   return "Open Hat";
+                case Instrument::Crash:     return "Crash";
+                case Instrument::Ride:      return "Ride";
+                default: break;
+            }
+            return "Track";
+        }
+
+        int getRecordStepIndex()
+        {
+            return juce::jlimit(0, 15, engine.getSequencer().getCurrentStep());
+        }
+
+        void toggleRecording()
+        {
+            recordingEnabled = !recordingEnabled;
+            recBtn.setColour(juce::TextButton::buttonColourId,
+                             recordingEnabled ? juce::Colour(0xffcc3030) : juce::Colour(0xffb0b0b0));
+            recBtn.setColour(juce::TextButton::textColourOffId,
+                             recordingEnabled ? juce::Colours::white : Clr::textDark);
+            repaint();
+        }
+
+        void onInstrumentKnobMoved(const KnobDef& kd, float value)
+        {
+            if (!recordingEnabled)
+                return;
+
+            const int step = getRecordStepIndex();
+            engine.getSequencer().setAutomationPoint(kd.instrument, toAutomationParam(kd.param), step, value);
+            updateCurrentPatternFromEngine();
+
+            if (panelExpanded)
+                grid->repaint();
+        }
+
+        void requestClearTrackAutomation(Instrument inst)
+        {
+            if (!engine.getSequencer().hasAutomation(inst))
+                return;
+
+            const auto confirm = juce::AlertWindow::showOkCancelBox(
+                juce::AlertWindow::WarningIcon,
+                "Remove Recorded Knob Movements",
+                "Clear all recorded knob movement data for " + instrumentName(inst) + "?",
+                "Clear",
+                "Cancel",
+                this,
+                nullptr);
+
+            if (!confirm)
+                return;
+
+            engine.getSequencer().clearAutomation(inst);
+            saveCurrentPatternSlot();
+            if (panelExpanded)
+                grid->repaint();
         }
 
         void togglePanel()
@@ -1414,6 +2299,7 @@ namespace rb338
 
         void timerCallback() override
         {
+            updateCurrentPatternFromEngine();
             int currentStep = engine.getSequencer().getCurrentStep();
 
             stepButtonRow->setCurrentStep(currentStep);
@@ -1441,7 +2327,20 @@ namespace rb338
         {
             setUsingNativeTitleBar(true);
             setContentOwned(new MainComponent(), true);
-            centreWithSize(getWidth(), getHeight());
+            setResizable(false, false);
+
+            const auto displayArea = juce::Desktop::getInstance().getDisplays().getPrimaryDisplay()->userArea;
+            int expandedH = getHeight();
+            if (auto* main = dynamic_cast<MainComponent*>(getContentComponent()))
+                expandedH = main->getExpandedHeightForWindow();
+
+            const int x = displayArea.getX() + (displayArea.getWidth() - getWidth()) / 2;
+            int y = displayArea.getY() + 18;
+            const int maxTopForExpanded = displayArea.getBottom() - expandedH - 10;
+            if (maxTopForExpanded < y)
+                y = juce::jmax(displayArea.getY(), maxTopForExpanded);
+
+            setTopLeftPosition(x, y);
             setVisible(true);
         }
 
@@ -1455,7 +2354,7 @@ namespace rb338
     {
     public:
         const juce::String getApplicationName() override { return "LoS.9x9 Rhythm Composer"; }
-        const juce::String getApplicationVersion() override { return "0.2.0"; }
+        const juce::String getApplicationVersion() override { return "0.3.0"; }
         void initialise(const juce::String&) override { mainWindow.reset(new MainWindow(getApplicationName())); }
         void shutdown() override { mainWindow = nullptr; }
 

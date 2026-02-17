@@ -15,6 +15,15 @@ namespace rb338
     {
         buffer.clear();
         juce::Array<StepEvent> events;
+        juce::Array<StepEvent> pending;
+
+        {
+            const juce::SpinLock::ScopedLockType sl(pendingTriggerLock);
+            pending.swapWith(pendingTriggers);
+        }
+
+        for (const auto& event : pending)
+            triggerVoice(event);
 
         for (int i = 0; i < numSamples; ++i)
         {
@@ -22,26 +31,8 @@ namespace rb338
             {
                 for (auto& event : events)
                 {
-                    if (event.instrument == Instrument::ClosedHat)
-                        clearVoices(Instrument::OpenHat);
-
-                    VoiceInstance voice;
-                    voice.sample = &sampleLibrary.get(event.instrument);
-                    voice.position = 0;
-
-                    // Apply TR-909 style accent boost
-                    if (event.velocity >= 0.9f) // Accent hit
-                    {
-                        // Accent boost: 0% at accentLevel=0, up to 50% boost at accentLevel=1
-                        float accentBoost = 1.0f + (accentLevel * 0.5f);
-                        voice.gain = event.velocity * accentBoost;
-                    }
-                    else // Normal hit
-                    {
-                        voice.gain = event.velocity;
-                    }
-
-                    voices[(int)event.instrument].add(voice);
+                    applyAutomationForStep(event.instrument, event.stepIndex);
+                    triggerVoice(event);
                 }
             }
 
@@ -78,11 +69,47 @@ namespace rb338
             left += delayedL * delayMix;
             right += delayedR * delayMix;
 
+            // Accent-dependent low-end thump reinforcement for kick accents.
+            if (kickThumpEnv > 0.0001f)
+            {
+                float thump = std::sin(kickThumpPhase) * kickThumpEnv * 0.12f;
+                kickThumpPhase += juce::MathConstants<float>::twoPi * 48.0f / (float)sampleRate;
+                if (kickThumpPhase > juce::MathConstants<float>::twoPi)
+                    kickThumpPhase -= juce::MathConstants<float>::twoPi;
+                kickThumpEnv *= 0.9982f;
+
+                left += thump;
+                right += thump;
+            }
+
+            // Soft protection keeps accents powerful but avoids harsh clipping.
+            left = safeSaturate(left, 1.08f);
+            right = safeSaturate(right, 1.08f);
+            const float peak = juce::jmax(std::abs(left), std::abs(right));
+            if (peak > 0.98f)
+            {
+                const float trim = 0.98f / peak;
+                left *= trim;
+                right *= trim;
+            }
+
             delayWritePos = (delayWritePos + 1) % delayBuffer.getNumSamples();
 
             buffer.setSample(0, i, left);
             buffer.setSample(1, i, right);
         }
+    }
+
+    void Engine::triggerInstrument(Instrument instrument, float velocity)
+    {
+        StepEvent event;
+        event.instrument = instrument;
+        event.velocity = juce::jlimit(0.0f, 1.0f, velocity);
+        event.flam = false;
+        event.stepIndex = -1;
+
+        const juce::SpinLock::ScopedLockType sl(pendingTriggerLock);
+        pendingTriggers.add(event);
     }
 
     void Engine::setBpm(float bpm)
@@ -103,6 +130,11 @@ namespace rb338
     void Engine::setAccentLevel(float level)
     {
         accentLevel = juce::jlimit(0.0f, 1.0f, level);
+    }
+
+    float Engine::getAccentLevel() const
+    {
+        return accentLevel;
     }
 
     Sequencer& Engine::getSequencer()
@@ -148,6 +180,61 @@ namespace rb338
         return sum;
     }
 
+    void Engine::triggerVoice(const StepEvent& event)
+    {
+        if (event.instrument == Instrument::ClosedHat)
+            clearVoices(Instrument::OpenHat);
+
+        VoiceInstance voice;
+        voice.sample = &sampleLibrary.get(event.instrument);
+        voice.position = 0;
+        voice.accented = (event.velocity >= 0.95f);
+        voice.gain = event.velocity * accentMultiplier(event.instrument, voice.accented);
+
+        if (voice.accented && event.instrument == Instrument::Kick)
+            kickThumpEnv = juce::jmax(kickThumpEnv, 0.55f + accentLevel * 0.65f);
+
+        voices[(int)event.instrument].add(voice);
+    }
+
+    void Engine::applyAutomationForStep(Instrument instrument, int stepIndex)
+    {
+        if (stepIndex < 0 || stepIndex >= 16)
+            return;
+
+        auto& seq = getSequencer();
+        auto& ch = channels[(int)instrument];
+
+        float value = 0.0f;
+        bool needsResynth = false;
+
+        if (seq.getAutomationPoint(instrument, AutomationParam::Level, stepIndex, value))
+            ch.level = value;
+        if (seq.getAutomationPoint(instrument, AutomationParam::Tune, stepIndex, value))
+        {
+            ch.params.tune = value;
+            needsResynth = true;
+        }
+        if (seq.getAutomationPoint(instrument, AutomationParam::Decay, stepIndex, value))
+        {
+            ch.params.decay = value;
+            needsResynth = true;
+        }
+        if (seq.getAutomationPoint(instrument, AutomationParam::Tone, stepIndex, value))
+        {
+            ch.params.tone = value;
+            needsResynth = true;
+        }
+        if (seq.getAutomationPoint(instrument, AutomationParam::Snappy, stepIndex, value))
+        {
+            ch.params.snappy = value;
+            needsResynth = true;
+        }
+
+        if (needsResynth)
+            updateInstrumentSound(instrument);
+    }
+
     void Engine::clearVoices(Instrument instrument)
     {
         voices[(int)instrument].clearQuick();
@@ -161,5 +248,36 @@ namespace rb338
         delayBuffer.setSize(2, bufferSize);
         delayBuffer.clear();
         delayWritePos = 0;
+    }
+
+    float Engine::accentMultiplier(Instrument instrument, bool accented) const
+    {
+        if (!accented)
+            return 1.0f;
+
+        float boost = 1.0f + accentLevel * 0.35f;
+        switch (instrument)
+        {
+            case Instrument::Kick:      boost = 1.0f + accentLevel * 0.72f; break;
+            case Instrument::Snare:     boost = 1.0f + accentLevel * 0.42f; break;
+            case Instrument::TomLow:
+            case Instrument::TomMid:
+            case Instrument::TomHigh:   boost = 1.0f + accentLevel * 0.38f; break;
+            case Instrument::Clap:
+            case Instrument::Rim:       boost = 1.0f + accentLevel * 0.32f; break;
+            case Instrument::ClosedHat:
+            case Instrument::OpenHat:
+            case Instrument::Crash:
+            case Instrument::Ride:      boost = 1.0f + accentLevel * 0.26f; break;
+            default: break;
+        }
+        return boost;
+    }
+
+    float Engine::safeSaturate(float x, float drive) const
+    {
+        float y = x * drive;
+        const float y2 = y * y;
+        return y * (27.0f + y2) / (27.0f + 9.0f * y2);
     }
 }
